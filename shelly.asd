@@ -4,8 +4,6 @@
 |#
 
 #|
-  
-
   Author: Eitarow Fukamachi (e.arrows@gmail.com)
 |#
 
@@ -18,7 +16,8 @@
   :version "0.1-SNAPSHOT"
   :author "Eitarow Fukamachi"
   :license "BSD"
-  :depends-on (:swank)
+  :depends-on (:cl-annot
+               :swank)
   :components ((:module "src"
                 :components
                 ((:file "shelly"))))
