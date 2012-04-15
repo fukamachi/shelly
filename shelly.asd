@@ -17,7 +17,8 @@
   :author "Eitarow Fukamachi"
   :license "BSD"
   :depends-on (:cl-annot
-               :swank)
+               :swank
+               :cl-fad)
   :components ((:module "src"
                 :components
                 ((:file "shelly"))))
