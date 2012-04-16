@@ -48,14 +48,24 @@
 @export
 (defun shelly::interpret (expr)
   (etypecase expr
-    (string (shelly::interpret (read-from-string (format nil "(~A)" expr))))
+    (string (handler-case
+                (shelly::interpret (read-from-string (format nil "(~A)" expr)))
+              (t (c) (format t "Read-time error: ~A~%~A"
+                             (format nil "(~A)" expr) c))))
     (list
      (let ((expr (shelly::read expr)))
        (handler-case (shelly::eval expr)
          (program-error ()
            (print-usage (car expr)))
-         (undefined-function ()
-           (format *error-output* "Error: command not found: ~(~A~)" (car expr)))
+         (undefined-function (c)
+           (format *error-output* "Error: command not found: ~(~A~)"
+                   (or
+                    #+sbcl (slot-value c 'sb-kernel::name)
+                    #+ecl (slot-value c 'si::name)
+                    #+cmu (getf (conditions::condition-actual-initargs c) :name)
+                    #+allegro (slot-value c 'excl::name)
+                    #+ccl (slot-value c 'ccl::name)
+                    #+clisp (slot-value c 'system::$name))))
          (t (c)
            (format *error-output* "Error: ~A" c)))))))
 
