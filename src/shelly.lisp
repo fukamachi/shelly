@@ -6,6 +6,7 @@
 (in-package :cl-user)
 (defpackage shelly
   (:use :cl)
+  (:shadow :read :eval)
   (:import-from :swank-backend
                 :quit-lisp
                 :arglist)
@@ -25,15 +26,15 @@
   (prompt)
   (loop for expr = (read-line *terminal-io* nil :eof)
         until (eq expr :eof)
-        do (shelly-interpret expr)
+        do (interpret expr)
            (prompt)
         finally (quit-lisp)))
 
-(defun shelly-eval (expr)
-  #-clisp (princ (eval expr))
-  #+clisp (eval expr))
+(defun shelly::eval (expr)
+  #-clisp (princ (cl:eval expr))
+  #+clisp (cl:eval expr))
 
-(defun shelly-read (expr)
+(defun shelly::read (expr)
   (destructuring-bind (fn &rest args) expr
     (cons fn
           (mapcar #'(lambda (a)
@@ -45,12 +46,12 @@
                   args))))
 
 @export
-(defun shelly-interpret (expr)
+(defun shelly::interpret (expr)
   (etypecase expr
-    (string (shelly-interpret (read-from-string (format nil "(~A)" expr))))
+    (string (shelly::interpret (read-from-string (format nil "(~A)" expr))))
     (list
-     (let ((expr (shelly-read expr)))
-       (handler-case (shelly-eval expr)
+     (let ((expr (shelly::read expr)))
+       (handler-case (shelly::eval expr)
          (program-error ()
            (print-usage (car expr)))
          (undefined-function ()
