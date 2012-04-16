@@ -59,6 +59,55 @@
          (t (c)
            (format *error-output* "Error: ~A" c)))))))
 
+(defparameter *config-file*
+              (format nil "# -*- mode: perl -*-
+
+{
+    default_lisp    => ~:[undef~;~:*\"~A\"~],
+    implementations => {
+        ~:*~:[~*~;~:*~A => \"~A\",~]
+    },
+}
+"
+                      (or
+                       #+ccl "ccl"
+                       #+sbcl "sbcl"
+                       #+allegro "alisp"
+                       #+clisp "clisp"
+                       #+cmu "cmucl"
+                       #+ecl "ecl")
+
+                      (or
+                       #+ccl (car ccl:*command-line-argument-list*)
+                       #+sbcl (car sb-ext:*posix-argv*)
+                       #+allegro (car (system:command-line-arguments))
+                       #+clisp "clisp"
+                       #+cmu (car ext:*command-line-strings*)
+                       #+ecl (car (si:command-args)))))
+
+@export
+(defun install-script ()
+  (let ((home-config-path
+         (merge-pathnames ".shelly/" (user-homedir-pathname)))
+        (shly-path
+         (asdf:system-relative-pathname :shelly "bin/shly")))
+
+    (ensure-directories-exist home-config-path)
+
+    (with-open-file (out (merge-pathnames "config" home-config-path)
+                         :direction :output)
+      (write-string *config-file* out))
+
+    (dolist (dir '("dumped-cores/" "bin/"))
+      (ensure-directories-exist
+       (merge-pathnames dir home-config-path)))
+
+    (if (fad:file-exists-p shly-path)
+        (fad:copy-file shly-path
+         (merge-pathnames "bin/shly" home-config-path))
+        (warn "Shelly script doesn't exist. Ignored.")))
+  t)
+
 (defun print-usage (fn)
   (format t
           "Usage: ~(~A~) [~{~(~A~^ ~)~}]"
