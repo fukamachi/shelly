@@ -116,7 +116,8 @@
 
 (defun canonicalize-arg (arg)
   (cond
-    ((numberp arg) arg)
+    ((or (numberp arg) (consp arg) (typep arg 'boolean))
+     arg)
     ((string= "--" (handler-case (subseq (string arg) 0 2)
                      (simple-error ())))
      (concatenate 'string ":" (subseq (string arg) 2)))
