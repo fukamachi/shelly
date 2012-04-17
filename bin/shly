@@ -172,11 +172,8 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       if ( @lisp_impl > 1 ) {
           print "Which do you prefer? [@{[ $lisp_impl[0] ]}] : ";
-          my $input = <STDIN>;
   
-          exit unless $input;
-  
-          chomp $input;
+          chomp( my $input = <STDIN> );
   
           $input = $lisp_impl[0] unless $input;
   
