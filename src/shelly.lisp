@@ -69,8 +69,36 @@
       (t (c)
         (format *error-output* "Error: ~A" c)))))
 
-(defparameter *config-file*
-              (format nil "# -*- mode: perl -*-
+
+(defvar *current-lisp-path*
+    (or
+     #+ccl (car ccl:*command-line-argument-list*)
+     #+sbcl (car sb-ext:*posix-argv*)
+     #+allegro (car (system:command-line-arguments))
+     #+clisp "clisp"
+     #+cmu (car ext:*command-line-strings*)
+     #+ecl (car (si:command-args))))
+
+(defvar *current-lisp-name*
+    (or
+     #+ccl "ccl"
+     #+sbcl "sbcl"
+     #+allegro "alisp"
+     #+clisp "clisp"
+     #+cmu "cmucl"
+     #+ecl "ecl"))
+
+(defvar *eval-option*
+    (or
+     #+ccl "--eval"
+     #+sbcl "--eval"
+     #+allegro "-e"
+     #+clisp "-x"
+     #+cmu "-eval"
+     #+ecl "-eval"))
+
+(defvar *config-file*
+    (format nil "# -*- mode: perl -*-
 
 {
     default_lisp    => ~:[undef~;~:*\"~A\"~],
@@ -79,21 +107,12 @@
     },
 }
 "
-                      (or
-                       #+ccl "ccl"
-                       #+sbcl "sbcl"
-                       #+allegro "alisp"
-                       #+clisp "clisp"
-                       #+cmu "cmucl"
-                       #+ecl "ecl")
+            *current-lisp-name*
+            *current-lisp-path*))
 
-                      (or
-                       #+ccl (car ccl:*command-line-argument-list*)
-                       #+sbcl (car sb-ext:*posix-argv*)
-                       #+allegro (car (system:command-line-arguments))
-                       #+clisp "clisp"
-                       #+cmu (car ext:*command-line-strings*)
-                       #+ecl (car (si:command-args)))))
+@export
+(defparameter *shelly-version*
+              (slot-value (asdf:find-system :shelly) 'asdf:version))
 
 @export
 (defun install-script ()
@@ -115,18 +134,36 @@
     (if (fad:file-exists-p shly-path)
         (fad:copy-file shly-path
          (merge-pathnames "bin/shly" home-config-path))
-        (warn "Shelly script doesn't exist. Ignored.")))
+        (warn "Shelly script doesn't exist. Ignored."))
+
+    (dump-core
+     (merge-pathnames (format nil "dumped-cores/~A.core"
+                              *current-lisp-name*)
+                      home-config-path)
+     :quit-lisp nil))
   t)
 
 @export
-(defun dump-core (filepath)
-  #+allegro (excl:dumplisp :name filepath)
-  #+ccl (ccl:save-application filepath)
-  #+sbcl (sb-ext:save-lisp-and-die filepath)
-  #+clisp (progn (ext:saveinitmem filepath) (quit-lisp))
-  #+cmu (ext:save-lisp filepath :load-init-file nil)
-  #-(or allegro ccl sbcl clisp cmu)
-  (princ "`dump-core' isn't supported on this implementation."))
+(defun dump-core (filepath &key (quit-lisp t))
+  (let ((command (dump-core-command filepath)))
+    (unless command
+      (princ "`dump-core' isn't supported on this implementation.")
+      (return-from dump-core))
+
+    (if quit-lisp
+        (eval command)
+        (asdf:run-shell-command "~A ~A '~S'"
+                                *current-lisp-path*
+                                *eval-option*
+                                command))))
+
+(defun dump-core-command (filepath)
+  #+allegro `(excl:dumplisp :name ,filepath)
+  #+ccl `(ccl:save-application ,filepath)
+  #+sbcl `(sb-ext:save-lisp-and-die ,filepath)
+  #+clisp `(progn (ext:saveinitmem ,filepath) (ext:quit))
+  #+cmu `(ext:save-lisp ,filepath :load-init-file nil)
+  #-(or allegro ccl sbcl clisp cmu) nil)
 
 (defun print-usage (fn)
   (format t
