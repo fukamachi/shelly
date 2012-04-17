@@ -100,18 +100,6 @@
      #+cmu "-eval"
      #+ecl "-eval"))
 
-(defvar *config-file*
-    (format nil "# -*- mode: perl -*-
-
-{
-~:[~;~:*    binary_path => \"~A\",~]
-}
-"
-            *current-lisp-path*))
-
-(defvar *config-file-path*
-    (format nil "config.~A" *current-lisp-name*))
-
 @export
 (defparameter *shelly-version*
               (slot-value (asdf:find-system :shelly) 'asdf:version))
@@ -125,11 +113,34 @@
 
     (ensure-directories-exist home-config-path)
 
-    (with-open-file (out (merge-pathnames *config-file-path* home-config-path)
+    (with-open-file (out (merge-pathnames
+                          (format nil "config.~A" *current-lisp-name*)
+                          home-config-path)
                          :direction :output
                          :if-does-not-exist :create
                          :if-exists :overwrite)
-      (write-string *config-file* out))
+      (format out "# -*- mode: perl -*-
+
+{
+~:[~;~:*    binary_path => \"~A\",~]
+}
+"
+              *current-lisp-path*))
+
+    (with-open-file (out (merge-pathnames "config" home-config-path)
+                         :direction :output
+                         :if-does-not-exist :create
+                         :if-exists :overwrite)
+      (format out "# -*- mode: perl -*-
+
+{
+    default_lisp => \"~A\",
+    version => \"~A\",
+}
+"
+              *current-lisp-name*
+              (slot-value (asdf:find-system :shelly)
+                          'asdf:version)))
 
     (dolist (dir '("dumped-cores/" "bin/"))
       (ensure-directories-exist
