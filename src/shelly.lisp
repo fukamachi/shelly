@@ -35,39 +35,39 @@
   #+clisp (cl:eval expr))
 
 (defun shelly::read (expr)
-  (destructuring-bind (fn &rest args) expr
-    (cons fn
-          (mapcar #'(lambda (a)
-                      (let ((a (canonicalize-arg a)))
-                        (if (and (not (keywordp a))
-                                 (symbolp a))
-                            (string a)
-                            a)))
-                  args))))
-
-@export
-(defun shelly::interpret (expr)
   (etypecase expr
     (string (handler-case
-                (shelly::interpret (read-from-string (format nil "(~A)" expr)))
+                (shelly::read (read-from-string (format nil "(~A)" expr)))
               (t (c) (format t "Read-time error: ~A~%~A"
                              (format nil "(~A)" expr) c))))
     (list
-     (let ((expr (shelly::read expr)))
-       (handler-case (shelly::eval expr)
-         (program-error ()
-           (print-usage (car expr)))
-         (undefined-function (c)
-           (format *error-output* "Error: command not found: ~(~A~)"
-                   (or
-                    #+sbcl (slot-value c 'sb-kernel::name)
-                    #+ecl (slot-value c 'si::name)
-                    #+cmu (getf (conditions::condition-actual-initargs c) :name)
-                    #+allegro (slot-value c 'excl::name)
-                    #+ccl (slot-value c 'ccl::name)
-                    #+clisp (slot-value c 'system::$name))))
-         (t (c)
-           (format *error-output* "Error: ~A" c)))))))
+     (destructuring-bind (fn &rest args) expr
+       (cons fn
+             (mapcar #'(lambda (a)
+                         (let ((a (canonicalize-arg a)))
+                           (if (and (not (keywordp a))
+                                    (symbolp a))
+                               (string a)
+                               a)))
+                     args))))))
+
+@export
+(defun shelly::interpret (expr)
+  (let ((expr (shelly::read expr)))
+    (handler-case (shelly::eval expr)
+      (program-error ()
+        (print-usage (car expr)))
+      (undefined-function (c)
+        (format *error-output* "Error: command not found: ~(~A~)"
+                (or
+                 #+sbcl (slot-value c 'sb-kernel::name)
+                 #+ecl (slot-value c 'si::name)
+                 #+cmu (getf (conditions::condition-actual-initargs c) :name)
+                 #+allegro (slot-value c 'excl::name)
+                 #+ccl (slot-value c 'ccl::name)
+                 #+clisp (slot-value c 'system::$name))))
+      (t (c)
+        (format *error-output* "Error: ~A" c)))))
 
 (defparameter *config-file*
               (format nil "# -*- mode: perl -*-
