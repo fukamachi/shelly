@@ -118,6 +118,16 @@
         (warn "Shelly script doesn't exist. Ignored.")))
   t)
 
+@export
+(defun dump-core (filepath)
+  #+allegro (excl:dumplisp :name filepath)
+  #+ccl (ccl:save-application filepath)
+  #+sbcl (sb-ext:save-lisp-and-die filepath)
+  #+clisp (progn (ext:saveinitmem filepath) (quit-lisp))
+  #+cmu (ext:save-lisp filepath :load-init-file nil)
+  #-(or allegro ccl sbcl clisp cmu)
+  (princ "`dump-core' isn't supported on this implementation."))
+
 (defun print-usage (fn)
   (format t
           "Usage: ~(~A~) [~{~(~A~^ ~)~}]"
