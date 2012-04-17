@@ -117,6 +117,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       if ( $self->{install} ) {
           push @evals, '(shelly:install-script)';
+          push @evals, '(swank-backend:quit-lisp)';
       }
   
       if ( @{ $self->{load_libraries} } ) {
