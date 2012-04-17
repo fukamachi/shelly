@@ -12,7 +12,9 @@
                 :quit-lisp
                 :arglist)
   (:import-from :cl-fad
-                :file-exists-p))
+                :file-exists-p)
+  (:import-from :osicat
+                :file-permissions))
 (in-package :shelly)
 
 (cl-annot:enable-annot-syntax)
@@ -146,11 +148,16 @@
       (ensure-directories-exist
        (merge-pathnames dir home-config-path)))
 
-    (if (fad:file-exists-p shly-path)
-        (fad:copy-file shly-path
-         (merge-pathnames "bin/shly" home-config-path)
-         :overwrite t)
-        (warn "Shelly script doesn't exist. Ignored."))
+    (cond
+      ((fad:file-exists-p shly-path)
+       (fad:copy-file shly-path
+        (merge-pathnames "bin/shly" home-config-path)
+        :overwrite t)
+       (pushnew :user-exec
+                (osicat:file-permissions
+                 (merge-pathnames "bin/shly" home-config-path))))
+      (t
+       (warn "Shelly script doesn't exist. Ignored.")))
 
     (dump-core
      (merge-pathnames (format nil "dumped-cores/~A.core"
