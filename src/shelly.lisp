@@ -120,7 +120,7 @@
                           home-config-path)
                          :direction :output
                          :if-does-not-exist :create
-                         :if-exists :overwrite)
+                         :if-exists :supersede)
       (format out "# -*- mode: perl -*-
 
 {
@@ -132,7 +132,7 @@
     (with-open-file (out (merge-pathnames "config" home-config-path)
                          :direction :output
                          :if-does-not-exist :create
-                         :if-exists :overwrite)
+                         :if-exists :supersede)
       (format out "# -*- mode: perl -*-
 
 {
