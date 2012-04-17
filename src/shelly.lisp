@@ -104,14 +104,13 @@
     (format nil "# -*- mode: perl -*-
 
 {
-    default_lisp    => ~:[undef~;~:*\"~A\"~],
-    implementations => {
-        ~:*~:[~*~;~:*~A => \"~A\",~]
-    },
+~:[~;~:*    binary_path => \"~A\",~]
 }
 "
-            *current-lisp-name*
             *current-lisp-path*))
+
+(defvar *config-file-path*
+    (format nil "config.~A" *current-lisp-name*))
 
 @export
 (defparameter *shelly-version*
@@ -126,8 +125,10 @@
 
     (ensure-directories-exist home-config-path)
 
-    (with-open-file (out (merge-pathnames "config" home-config-path)
-                         :direction :output)
+    (with-open-file (out (merge-pathnames *config-file-path* home-config-path)
+                         :direction :output
+                         :if-does-not-exist :create
+                         :if-exists :overwrite)
       (write-string *config-file* out))
 
     (dolist (dir '("dumped-cores/" "bin/"))
@@ -136,7 +137,8 @@
 
     (if (fad:file-exists-p shly-path)
         (fad:copy-file shly-path
-         (merge-pathnames "bin/shly" home-config-path))
+         (merge-pathnames "bin/shly" home-config-path)
+         :overwrite t)
         (warn "Shelly script doesn't exist. Ignored."))
 
     (dump-core
