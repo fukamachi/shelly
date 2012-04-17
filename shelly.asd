@@ -4,6 +4,8 @@
 |#
 
 #|
+  Shelly - Run Common Lisp from shell easily.
+
   Author: Eitarow Fukamachi (e.arrows@gmail.com)
 |#
 
@@ -23,7 +25,7 @@
   :components ((:module "src"
                 :components
                 ((:file "shelly"))))
-  :description ""
+  :description "Run Common Lisp from shell easily."
   :long-description
   #.(with-open-file (stream (merge-pathnames
                              #p"README.markdown"
