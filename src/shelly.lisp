@@ -157,7 +157,14 @@
                               *current-lisp-name*)
                       home-config-path)
      :quit-lisp nil))
-  t)
+
+  (format t "~
+Successfully installed!
+Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
+
+    PATH=\"$HOME/.shelly/bin:$PATH\"
+")
+  (values))
 
 @export
 (defun dump-core (filepath &key (quit-lisp t))
