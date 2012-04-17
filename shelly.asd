@@ -18,7 +18,8 @@
   :license "BSD"
   :depends-on (:cl-annot
                :swank
-               :cl-fad)
+               :cl-fad
+               :split-sequence)
   :components ((:module "src"
                 :components
                 ((:file "shelly"))))

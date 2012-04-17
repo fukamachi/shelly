@@ -5,7 +5,8 @@
 
 (in-package :cl-user)
 (defpackage shelly
-  (:use :cl)
+  (:use :cl
+        :split-sequence)
   (:shadow :read :eval)
   (:import-from :swank-backend
                 :quit-lisp
@@ -36,15 +37,17 @@
 
 (defun shelly::read (expr)
   (etypecase expr
-    (string (handler-case
-                (shelly::read (read-from-string (format nil "(~A)" expr)))
-              (t (c) (format t "Read-time error: ~A~%~A"
-                             (format nil "(~A)" expr) c))))
+    (string (shelly::read (split-sequence #\Space expr)))
     (list
      (destructuring-bind (fn &rest args) expr
-       (cons fn
+       (cons (handler-case (read-from-string fn)
+               (t (c) (format t "Read-time error: ~A~%~A"
+                              (format nil "(~A)" expr) c)))
              (mapcar #'(lambda (a)
-                         (let ((a (canonicalize-arg a)))
+                         (let* ((a (or (ignore-errors
+                                         (read-from-string a))
+                                       a))
+                                (a (canonicalize-arg a)))
                            (if (and (not (keywordp a))
                                     (symbolp a))
                                (string a)
