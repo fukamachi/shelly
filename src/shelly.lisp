@@ -71,9 +71,8 @@
                  #+allegro (slot-value c 'excl::name)
                  #+ccl (slot-value c 'ccl::name)
                  #+clisp (slot-value c 'system::$name))))
-      (t (c)
+      (error (c)
         (format *error-output* "Error: ~A" c)))))
-
 
 (defvar *current-lisp-path*
     (or
