@@ -57,7 +57,7 @@
                      args))))))
 
 @export
-(defun shelly::interpret (expr)
+(defun shelly::interpret (&rest expr)
   (let ((expr (shelly::read expr)))
     (handler-case (shelly::eval expr)
       (program-error ()
