@@ -183,8 +183,10 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
     (if quit-lisp
         (eval command)
-        (asdf:run-shell-command "~A ~A '~S'"
+        (asdf:run-shell-command "~A ~A '~A' ~A '~S'"
                                 *current-lisp-path*
+                                *eval-option*
+                                "(ql:quickload :shelly)"
                                 *eval-option*
                                 command))))
 
