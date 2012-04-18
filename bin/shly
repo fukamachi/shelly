@@ -98,18 +98,27 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
             ( $lisp_bin, impl->('core_option'), dumped_core_path );
       }
       else {
-          print
+          if ( $self->{lisp_impl} ne 'ecl' && !$self->{dump_core} ) {
+              print
   "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly --dump-core\".\n";
+          }
       }
   
-      my @evals = (<<END_OF_LISP);
+      my @evals = ();
+      unless ( -e dumped_core_path ) {
+          push @evals, <<END_OF_LISP;
   (let ((*standard-output* (make-broadcast-stream)))
     (handler-case (ql:quickload :shelly)
       (quicklisp-client::system-not-found ()
        (format *error-output* "Shelly is not found. Try (ql:update-all-dists) to ensure your dist is up to date.~%")
        #+allegro (exit 1 :quiet t)
        #-allegro (quit)))
+    (values))
+  END_OF_LISP
+      }
   
+      push @evals, <<END_OF_LISP;
+  (let ((*standard-output* (make-broadcast-stream)))
     (unless (or (string= "" "@{[ config->{version} || '' ]}")
                 (string= "@{[ config->{version} || '' ]}"
                          (slot-value (asdf:find-system :shelly) (quote asdf:version))))
