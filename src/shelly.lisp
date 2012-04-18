@@ -204,12 +204,19 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
           fn
           (swank-backend:arglist fn)))
 
+@export
+(defun shadowing-use-package (packages-to-use &optional (package *package*))
+  (dolist (package-to-use packages-to-use)
+    (do-external-symbols (symbol package-to-use)
+      (shadowing-import symbol package))))
+
 (defun canonicalize-arg (arg)
   (cond
     ((or (numberp arg) (consp arg) (typep arg 'boolean))
      arg)
     ((string= "--" (handler-case (subseq (string arg) 0 2)
                      (simple-error ())))
-     (concatenate 'string ":" (subseq (string arg) 2)))
+     (intern (subseq (string arg) 2)
+             :keyword))
     ((fad:file-exists-p (string arg)))
     (t arg)))
