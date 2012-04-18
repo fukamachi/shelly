@@ -34,7 +34,7 @@
         finally (quit-lisp)))
 
 (defun shelly::eval (expr)
-  #-clisp (princ (cl:eval expr))
+  #-clisp (pprint (cl:eval expr))
   #+clisp (cl:eval expr))
 
 (defun shelly::read (expr)
