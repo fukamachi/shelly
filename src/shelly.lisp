@@ -106,7 +106,7 @@
               (slot-value (asdf:find-system :shelly) 'asdf:version))
 
 @export
-(defun install-script ()
+(defun install-script (&key quit-lisp)
   (let ((home-config-path
          (merge-pathnames ".shelly/" (user-homedir-pathname)))
         (shly-path
@@ -171,6 +171,8 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
     PATH=\"$HOME/.shelly/bin:$PATH\"
 
 ")
+  (when quit-lisp
+    (quit-lisp))
   (values))
 
 @export
@@ -208,6 +210,21 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
   (dolist (package-to-use packages-to-use)
     (do-external-symbols (symbol package-to-use)
       (shadowing-import symbol package))))
+
+@export
+(defun load-libraries (&rest libraries)
+  (ql:quickload libraries)
+  (shadowing-use-package libraries))
+
+@export
+(defun check-version (version)
+  (let ((*standard-output* (make-broadcast-stream)))
+    (unless (string= version
+                     (slot-value (asdf:find-system :shelly) 'asdf:version))
+      (format *error-output*
+              "Warning: different version of Shelly was detected. Try \\\"shly --install\\\".~%")
+      (force-output *error-output*))
+    (values)))
 
 (defun canonicalize-arg (arg)
   (cond
