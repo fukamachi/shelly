@@ -44,13 +44,13 @@
      (destructuring-bind (fn &rest args) expr
        (cons (handler-case (read-from-string fn)
                (t (c) (format t "Read-time error: ~A~%~A"
-                              (format nil "(~A)" expr) c)))
+                              expr c)))
              (mapcar #'(lambda (a)
-                         (let* ((a (or (ignore-errors
-                                         (read-from-string a))
-                                       a))
+                         (let* ((a (handler-case (read-from-string a)
+                                     (package-error () a)))
                                 (a (canonicalize-arg a)))
                            (if (and (not (keywordp a))
+                                    (not (typep a 'boolean))
                                     (symbolp a))
                                (string a)
                                a)))
