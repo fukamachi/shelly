@@ -84,7 +84,7 @@
 Successfully installed!
 Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
-    PATH=\"$HOME/.shelly/bin:$PATH\"
+    PATH=$HOME/.shelly/bin:$PATH
 
 ")
   (when quit-lisp
