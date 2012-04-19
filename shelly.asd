@@ -21,8 +21,7 @@
   :depends-on (:cl-annot
                :swank
                :cl-fad
-               :split-sequence
-               :osicat)
+               :split-sequence)
   :components ((:module "src"
                 :components
                 ((:file "shelly"))))

@@ -12,9 +12,7 @@
                 :quit-lisp
                 :arglist)
   (:import-from :cl-fad
-                :file-exists-p)
-  (:import-from :osicat
-                :file-permissions))
+                :file-exists-p))
 (in-package :shelly)
 
 (cl-annot:enable-annot-syntax)
@@ -154,9 +152,10 @@
        (fad:copy-file shly-path
         (merge-pathnames "bin/shly" home-config-path)
         :overwrite t)
-       (pushnew :user-exec
-                (osicat:file-permissions
-                 (merge-pathnames "bin/shly" home-config-path))))
+       ;; XXX: must be more portable.
+       (asdf:run-shell-command
+        "chmod u+x ~A"
+        (merge-pathnames "bin/shly" home-config-path)))
       (t
        (warn "Shelly script doesn't exist. Ignored.")))
 
