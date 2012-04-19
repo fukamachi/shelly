@@ -30,7 +30,7 @@
   (loop for expr = (read-line *terminal-io* nil :eof)
         until (eq expr :eof)
         do (unless (string= "" expr)
-             (interpret expr))
+             (apply #'interpret (split-sequence #\Space expr)))
            (prompt)
         finally (quit-lisp)))
 
@@ -39,21 +39,18 @@
   #+clisp (cl:eval expr))
 
 (defun shelly::read (expr)
-  (etypecase expr
-    (string (shelly::read (split-sequence #\Space expr)))
-    (list
-     (destructuring-bind (fn &rest args) expr
-       (cons (handler-case (read-from-string fn)
-               (error (c) (format t "Read-time error: ~A~%~A"
-                                  expr c)))
-             (mapcar #'(lambda (a)
-                         (let* ((a (canonicalize-arg a)))
-                           (if (and (not (keywordp a))
-                                    (not (typep a 'boolean))
-                                    (symbolp a))
-                               (string a)
-                               a)))
-                     args))))))
+  (destructuring-bind (fn &rest args) expr
+    (cons (handler-case (read-from-string fn)
+            (error (c) (format t "Read-time error: ~A~%~A"
+                               expr c)))
+          (mapcar #'(lambda (a)
+                      (let* ((a (canonicalize-arg a)))
+                        (if (and (not (keywordp a))
+                                 (not (typep a 'boolean))
+                                 (symbolp a))
+                            (string a)
+                            a)))
+                  args))))
 
 @export
 (defun shelly::interpret (&rest expr)
