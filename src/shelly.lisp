@@ -184,7 +184,9 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
       (return-from dump-core))
 
     (if quit-lisp
-        (eval command)
+        (progn
+          (ql:quickload :shelly)
+          (eval command))
         (asdf:run-shell-command "~A ~A '~A' ~A '~S'"
                                 *current-lisp-path*
                                 *eval-option*
