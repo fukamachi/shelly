@@ -6,9 +6,8 @@
 (in-package :cl-user)
 (defpackage shelly-test
   (:use :cl
-        :shelly
         :cl-test-more)
-  (:import-from :shelly
+  (:import-from :shelly.core
                 :canonicalize-arg))
 (in-package :shelly-test)
 
