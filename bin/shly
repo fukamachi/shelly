@@ -37,13 +37,11 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       push @ARGV, @argv;
   
       GetOptions(
-          'help|h'    => \$self->{help},
-          'impl|I=s'  => \$self->{lisp_impl},
-          'load|L=s'  => \my $libraries,
-          'install'   => \$self->{install},
-          'dump-core' => \$self->{dump_core},
-          'rm-core'   => \$self->{rm_core},
-          'debug'     => \$self->{debug},
+          'help|h'   => \$self->{help},
+          'impl|I=s' => \$self->{lisp_impl},
+          'load|L=s' => \my $libraries,
+          'install'  => \$self->{install},
+          'debug'    => \$self->{debug},
       );
   
       if ($libraries) {
@@ -67,18 +65,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           exit 1;
       }
   
-      if ( $self->{rm_core} ) {
-          unless ( -e dumped_core_path ) {
-              print "Core file doesn't exist: @{[ dumped_core_path ]}\n";
-              exit 1;
-          }
-  
-          unlink dumped_core_path;
-  
-          print "Successfully deleted: @{[ dumped_core_path ]}\n";
-          exit;
-      }
-  
       my $command = $self->_build_command;
   
       if ( $self->{debug} ) {
@@ -98,14 +84,14 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
             ( $lisp_bin, impl->('core_option'), dumped_core_path );
       }
       else {
-          if ( $self->{lisp_impl} ne 'ecl' && !$self->{dump_core} ) {
+          if ( $self->{lisp_impl} ne 'ecl' && !$self->{install} ) {
               print
-  "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly --dump-core\".\n";
+  "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly shelly:dump-core\".\n";
           }
       }
   
       my @evals = ();
-      unless ( -e dumped_core_path ) {
+      if ( $self->{install} || !-e dumped_core_path ) {
           push @evals, <<END_OF_LISP;
   (let ((*standard-output* (make-broadcast-stream)))
     (handler-case (ql:quickload :shelly)
@@ -117,40 +103,29 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   END_OF_LISP
       }
   
-      push @evals, <<END_OF_LISP;
-  (let ((*standard-output* (make-broadcast-stream)))
-    (unless (or (string= "" "@{[ config->{version} || '' ]}")
-                (string= "@{[ config->{version} || '' ]}"
-                         (slot-value (asdf:find-system :shelly) (quote asdf:version))))
-      (format *error-output*
-              "Warning: different version of Shelly was detected. Try \\\"shly --install\\\".~%")
-      (force-output *error-output*))
-    (values))
-  END_OF_LISP
+      if ( config->{version} ) {
+          push @evals, qq((shelly:check-version "@{[ config->{version} ]}"));
+      }
   
       if ( $self->{install} ) {
-          push @evals, '(shelly:install-script)';
-          push @evals, '(swank-backend:quit-lisp)';
+          push @evals, '(shelly:install-script :quit-lisp t)';
       }
   
       if ( @{ $self->{load_libraries} } ) {
-          my $eval_libs = sprintf q((ql:quickload (quote (%s)))), join ' ',
+          my $load_libraries = join ' ',
             ( map { ":$_" } @{ $self->{load_libraries} } );
   
+          my $eval_libs = sprintf q((shelly:load-libraries %s)),
+            $load_libraries;
           push @evals, $eval_libs;
-      }
-  
-      if ( $self->{dump_core} ) {
-          push @evals, sprintf '(shelly:dump-core "%s")', dumped_core_path;
       }
   
       {
           my @args = @{ $self->{argv} };
-          my $fn   = shift @args;
   
-          if ( defined $fn ) {
-              my $eval_expr = sprintf '(shelly:interpret "%s")',
-                ( join ' ', $fn, @args );
+          if ( @args > 0 ) {
+              my $eval_expr = sprintf '(shelly:interpret %s)',
+                ( join " ", ( map { "\"$_\"" } @args ) );
               push @evals, $eval_expr;
               push @evals, '(swank-backend:quit-lisp)';
           }
@@ -237,14 +212,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   =item B<-L, --load>
   
   Load libraries before executing the expression.
-  
-  =item B<--dump-core>
-  
-  Dump core image included Shelly for faster startup.
-  
-  =item B<--rm-core>
-  
-  Remove a dumped core image.
   
   =item B<--debug>
   
@@ -1074,16 +1041,48 @@ use lib "$Bin/../lib", "$Bin/../fatlib";
 use App::shelly;
 
 use Pod::Usage;
-use Pod::Find qw(pod_where);
 
 unless (caller) {
     my $app = App::shelly->new;
     $app->parse_options(@ARGV);
     if ( $app->{help} ) {
-        pod2usage(
-            verbose => 1,
-            -input  => pod_where( { -inc => 1 }, 'App::shelly' )
-        );
+        pod2usage( verbose => 1 );
     }
     $app->doit or exit(1);
 }
+
+__END__
+=head1 NAME
+
+App::shelly
+
+=head1 SYNOPSIS
+
+$ shly [options] [atom...]
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-h, --help>
+
+Show this help.
+
+=item B<--install>
+
+Install Shelly into ~/.shelly/.
+
+=item B<-I, --impl [implementation]>
+
+Tell what Lisp implementation to use. The default is $LISP_IMPL.
+
+=item B<-L, --load>
+
+Load libraries before executing the expression.
+
+=item B<--debug>
+
+This flag is for Shelly developers.
+
+=back
+
