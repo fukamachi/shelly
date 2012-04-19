@@ -21,12 +21,12 @@ Warning: This software is still ALPHA quality. The APIs will be likely to change
 
 ## Installation
 
-    $ curl -L http://xrl.us/shly | perl - --install
+    $ curl -L http://xrl.us/shly | perl - install
 
 or
 
     (ql:quickload :shelly)
-    (shelly:install-script)
+    (shelly:install)
 
 ## Configuration
 

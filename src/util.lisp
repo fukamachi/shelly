@@ -25,6 +25,6 @@
     (unless (string= version (slot-value (asdf:find-system :shelly)
                                          'asdf:version))
       (format *error-output*
-              "Warning: different version of Shelly was detected. Try \\\"shly --install\\\".~%")
+              "Warning: different version of Shelly was detected. Try \"shly install\".~%")
       (force-output *error-output*))
     (values)))
