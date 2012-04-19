@@ -40,7 +40,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           'help|h'   => \$self->{help},
           'impl|I=s' => \$self->{lisp_impl},
           'load|L=s' => \my $libraries,
-          'install'  => \$self->{install},
           'debug'    => \$self->{debug},
       );
   
@@ -79,19 +78,18 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       my $lisp_bin = impl->('binary') || $self->{lisp_impl};
   
+      my @evals = ();
+  
       if ( -e dumped_core_path ) {
           $lisp_bin = join ' ',
             ( $lisp_bin, impl->('core_option'), dumped_core_path );
       }
       else {
-          if ( $self->{lisp_impl} ne 'ecl' && !$self->{install} ) {
+          unless ( $self->{lisp_impl} eq 'ecl' ) {
               print
-  "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly shelly:dump-core\".\n";
+  "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly dump-core\".\n";
           }
-      }
   
-      my @evals = ();
-      if ( $self->{install} || !-e dumped_core_path ) {
           push @evals, <<END_OF_LISP;
   (let ((*standard-output* (make-broadcast-stream)))
     (handler-case (ql:quickload :shelly)
@@ -101,36 +99,30 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
        #-allegro (quit)))
     (values))
   END_OF_LISP
+          push @evals, '(shelly.util::shadowing-use-package :shelly)';
       }
   
       if ( config->{version} ) {
-          push @evals, qq((shelly:check-version "@{[ config->{version} ]}"));
+          push @evals,
+            qq((shelly.util::check-version "@{[ config->{version} ]}"));
       }
   
-      if ( $self->{install} ) {
-          push @evals, '(shelly:install-script :quit-lisp t)';
-      }
-  
-      if ( @{ $self->{load_libraries} } ) {
-          my $load_libraries = join ' ',
-            ( map { ":$_" } @{ $self->{load_libraries} } );
-  
-          my $eval_libs = sprintf q((shelly:load-libraries %s)),
-            $load_libraries;
-          push @evals, $eval_libs;
+      for ( @{ $self->{load_libraries} } ) {
+          push @evals, "(ql:quickload :$_)";
+          push @evals, "(shelly.util::shadowing-use-package :$_)";
       }
   
       {
           my @args = @{ $self->{argv} };
   
           if ( @args > 0 ) {
-              my $eval_expr = sprintf '(shelly:interpret %s)',
+              my $eval_expr = sprintf '(shelly.core::interpret %s)',
                 ( join " ", ( map { "\"$_\"" } @args ) );
               push @evals, $eval_expr;
               push @evals, '(swank-backend:quit-lisp)';
           }
           else {
-              push @evals, '(shelly:run-repl)';
+              push @evals, '(shelly::run-repl)';
           }
       }
   
@@ -200,10 +192,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   =item B<-h, --help>
   
   Show this help.
-  
-  =item B<--install>
-  
-  Install Shelly into ~/.shelly/.
   
   =item B<-I, --impl [implementation]>
   
@@ -283,7 +271,7 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
   config ccl => +{
       impl_name     => 'ccl',
       eval          => '--eval',
-      other_options => '--quiet --batch',
+      other_options => '--quiet',
       binary        => App::shelly::config::config('ccl')->{binary_path},
       core_option   => '-I',
   };
@@ -292,7 +280,7 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
       impl_name     => 'sbcl',
       pre_options   => '--noinform --disable-debugger',
       eval          => '--eval',
-      other_options => '--quiet --batch',
+      other_options => '--quiet',
       binary        => App::shelly::config::config('sbcl')->{binary_path},
       core_option   => '--core',
   };
@@ -1067,10 +1055,6 @@ $ shly [options] [atom...]
 =item B<-h, --help>
 
 Show this help.
-
-=item B<--install>
-
-Install Shelly into ~/.shelly/.
 
 =item B<-I, --impl [implementation]>
 
