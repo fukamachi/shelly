@@ -19,10 +19,6 @@
 
 (cl-annot:enable-annot-syntax)
 
-(defun shelly.core::eval (expr)
-  #-clisp (pprint (cl:eval expr))
-  #+clisp (cl:eval expr))
-
 (defun shelly.core::read (expr)
   (destructuring-bind (fn &rest args) expr
     (cons (handler-case (read-from-string fn)
@@ -39,7 +35,7 @@
 
 (defun interpret (&rest expr)
   (let ((expr (shelly.core::read expr)))
-    (handler-case (shelly.core::eval expr)
+    (handler-case (pprint (cl:eval expr))
       (program-error ()
         (print-usage (car expr)))
       (undefined-function (c)
