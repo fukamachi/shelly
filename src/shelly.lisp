@@ -29,7 +29,8 @@
   (prompt)
   (loop for expr = (read-line *terminal-io* nil :eof)
         until (eq expr :eof)
-        do (interpret expr)
+        do (unless (string= "" expr)
+             (interpret expr))
            (prompt)
         finally (quit-lisp)))
 
