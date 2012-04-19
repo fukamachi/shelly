@@ -106,6 +106,12 @@
               (slot-value (asdf:find-system :shelly) 'asdf:version))
 
 @export
+(defvar *dumped-core-path*
+    (merge-pathnames (format nil "dumped-cores/~A.core"
+                             *current-lisp-name*)
+                     (merge-pathnames ".shelly/" (user-homedir-pathname))))
+
+@export
 (defun install-script (&key quit-lisp)
   (let ((home-config-path
          (merge-pathnames ".shelly/" (user-homedir-pathname)))
@@ -158,11 +164,7 @@
       (t
        (warn "Shelly script doesn't exist. Ignored.")))
 
-    (dump-core
-     (merge-pathnames (format nil "dumped-cores/~A.core"
-                              *current-lisp-name*)
-                      home-config-path)
-     :quit-lisp nil))
+    (dump-core :quit-lisp nil))
 
   (format t "~&
 Successfully installed!
@@ -176,8 +178,8 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
   (values))
 
 @export
-(defun dump-core (filepath &key (quit-lisp t))
-  (let ((command (dump-core-command filepath)))
+(defun dump-core (&key (quit-lisp t))
+  (let ((command (dump-core-command *dumped-core-path*)))
     (unless command
       (princ "`dump-core' isn't supported on this implementation.")
       (return-from dump-core))
@@ -190,6 +192,17 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
                                 "(ql:quickload :shelly)"
                                 *eval-option*
                                 command))))
+
+@export
+(defun rm-core ()
+  (handler-case
+      (progn (delete-file *dumped-core-path*)
+             (format *standard-output*
+                     "~&Successfully deleted: ~A~%"
+                     *dumped-core-path*))
+    (file-error (c) (princ c)))
+
+  (quit-lisp))
 
 (defun dump-core-command (filepath)
   #+allegro `(excl:dumplisp :name ,filepath)
@@ -219,8 +232,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 @export
 (defun check-version (version)
   (let ((*standard-output* (make-broadcast-stream)))
-    (unless (string= version
-                     (slot-value (asdf:find-system :shelly) 'asdf:version))
+    (unless (string= version *shelly-version*)
       (format *error-output*
               "Warning: different version of Shelly was detected. Try \\\"shly --install\\\".~%")
       (force-output *error-output*))
