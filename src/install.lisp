@@ -15,7 +15,9 @@
                 :*current-lisp-name*
                 :*current-lisp-path*
                 :*eval-option*
-                :save-core-image))
+                :save-core-image)
+  (:import-from :shelly.util
+                :shadowing-use-package))
 (in-package :shelly.install)
 
 (cl-annot:enable-annot-syntax)
@@ -96,16 +98,19 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
 @export
 (defun dump-core (&key (quit-lisp t))
-  (if quit-lisp
-      (progn
-        (ql:quickload :shelly)
-        (save-core-image *dumped-core-path*))
-      (asdf:run-shell-command "~A ~A '~A' ~A '~S'"
-       *current-lisp-path*
-       *eval-option*
-       "(ql:quickload :shelly)"
-       *eval-option*
-       '(save-core-image *dumped-core-path*))))
+  (cond
+    (quit-lisp
+     (ql:quickload :shelly)
+     (shelly.util:shadowing-use-package :shelly))
+    (T
+     (asdf:run-shell-command "~A ~A '~A' ~A '~A' ~A '~S'"
+      *current-lisp-path*
+      *eval-option*
+      "(ql:quickload :shelly)"
+      *eval-option*
+      "(shelly.util:shadowing-use-package :shelly)"
+      *eval-option*
+      '(save-core-image *dumped-core-path*)))))
 
 @export
 (defun rm-core ()

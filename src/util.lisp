@@ -12,14 +12,12 @@
 
 @export
 (defun shadowing-use-package (packages-to-use &optional (package *package*))
-  (dolist (package-to-use packages-to-use)
-    (do-external-symbols (symbol package-to-use)
-      (shadowing-import symbol package))))
-
-@export
-(defun load-libraries (&rest libraries)
-  (ql:quickload libraries)
-  (shadowing-use-package libraries))
+  (let ((packages-to-use (if (consp packages-to-use)
+                             packages-to-use
+                             (list packages-to-use))))
+    (dolist (package-to-use packages-to-use)
+      (do-external-symbols (symbol package-to-use)
+        (shadowing-import symbol package)))))
 
 @export
 (defun check-version (version)

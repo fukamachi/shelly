@@ -26,7 +26,7 @@
                 :components
                 ((:file "shelly" :depends-on ("core" "install"))
                  (:file "core" :depends-on ("impl"))
-                 (:file "install" :depends-on ("impl"))
+                 (:file "install" :depends-on ("impl" "util"))
                  (:file "util")
                  (:file "impl"))))
   :description "Run Common Lisp from shell easily."
