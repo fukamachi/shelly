@@ -6,7 +6,7 @@
 (in-package :cl-user)
 (defpackage shelly.core
   (:use :cl)
-  (:shadow :read :eval)
+  (:shadow :read :print)
   (:import-from :swank-backend
                 :quit-lisp
                 :arglist)
@@ -32,9 +32,14 @@
                             a)))
                   args))))
 
+(defun shelly.core::print (result)
+  (typecase result
+    (string (princ result))
+    (T (pprint result))))
+
 (defun interpret (&rest expr)
   (let ((expr (shelly.core::read expr)))
-    (handler-case (pprint (cl:eval expr))
+    (handler-case (shelly.core::print (eval expr))
       (program-error ()
         (print-usage (car expr)))
       (undefined-function (c)
