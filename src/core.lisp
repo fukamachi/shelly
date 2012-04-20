@@ -5,8 +5,7 @@
 
 (in-package :cl-user)
 (defpackage shelly.core
-  (:use :cl
-        :split-sequence)
+  (:use :cl)
   (:shadow :read :eval)
   (:import-from :swank-backend
                 :quit-lisp
@@ -55,7 +54,9 @@
   (loop for expr = (read-line *terminal-io* nil :eof)
         until (eq expr :eof)
         do (unless (string= "" expr)
-             (apply #'interpret (split-sequence #\Space expr)))
+             (apply #'interpret
+                    (mapcar #'prin1-to-string
+                            (read-from-string (concatenate 'string "(" expr ")")))))
            (prompt)
         finally (quit-lisp)))
 
