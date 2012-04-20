@@ -42,3 +42,5 @@
           (setf (fill-pointer seq) (read-sequence seq stream))
           seq)))
   :in-order-to ((test-op (load-op shelly-test))))
+
+(pushnew :shelly *features*)
