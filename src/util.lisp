@@ -20,6 +20,15 @@
         (shadowing-import symbol package)))))
 
 @export
+(defun load-systems (systems)
+  (ql:quickload systems :verbose nil :prompt nil)
+  (shadowing-use-package
+   (remove-if-not #'find-package
+                  (if (consp systems)
+                      systems
+                      (list systems)))))
+
+@export
 (defun check-version (version)
   (let ((*standard-output* (make-broadcast-stream)))
     (unless (string= version (slot-value (asdf:find-system :shelly)
