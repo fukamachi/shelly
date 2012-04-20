@@ -58,10 +58,12 @@
   (prompt)
   (loop for expr = (read-line *terminal-io* nil :eof)
         until (eq expr :eof)
-        do (unless (string= "" expr)
-             (apply #'interpret
-                    (mapcar #'prin1-to-string
-                            (read-from-string (concatenate 'string "(" expr ")")))))
+        do (unwind-protect
+               (unless (string= "" expr)
+                 (apply #'interpret
+                        (mapcar #'prin1-to-string
+                                (read-from-string (concatenate 'string "(" expr ")")))))
+             (run-repl))
            (prompt)
         finally (quit-lisp)))
 
