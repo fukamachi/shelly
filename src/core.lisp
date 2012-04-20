@@ -37,8 +37,13 @@
     (string (princ result))
     (T (pprint result))))
 
-(defun interpret (&rest expr)
+@export
+(defun interpret (expr &key verbose)
+  (when verbose
+    (format *debug-io* "~&;-> ~S~%" expr))
   (let ((expr (shelly.core::read expr)))
+    (when verbose
+      (format *debug-io* "~&;-> ~S~%" expr))
     (handler-case (shelly.core::print (eval expr))
       (program-error ()
         (print-usage (car expr)))
@@ -54,16 +59,17 @@
   (force-output))
 
 @export
-(defun run-repl ()
+(defun run-repl (&key verbose)
   "Start Read-Eval-Print Loop for interactive execution."
   (prompt)
   (loop for expr = (read-line *terminal-io* nil :eof)
         until (eq expr :eof)
         do (unwind-protect
                (unless (string= "" expr)
-                 (apply #'interpret
-                        (mapcar #'prin1-to-string
-                                (read-from-string (concatenate 'string "(" expr ")")))))
+                 (interpret
+                  (mapcar #'prin1-to-string
+                          (read-from-string (concatenate 'string "(" expr ")")))
+                  :verbose verbose))
              (run-repl))
            (prompt)
         finally (quit-lisp)))
