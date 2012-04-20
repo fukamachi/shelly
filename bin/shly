@@ -40,6 +40,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           'help|h'   => \$self->{help},
           'impl|I=s' => \$self->{lisp_impl},
           'load|L=s' => \my $libraries,
+          'no-init'  => \$self->{noinit},
           'debug'    => \$self->{debug},
       );
   
@@ -48,6 +49,11 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       }
   
       $self->{argv} = \@ARGV;
+  
+      if ($self->{help}) {
+          $self->{noinit} = 1;
+          $self->{argv} = [ 'shelly::help' ];
+      }
   }
   
   sub doit {
@@ -77,6 +83,10 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       my ($self) = @_;
   
       my $lisp_bin = impl->('binary') || $self->{lisp_impl};
+  
+      if ($self->{noinit}) {
+          $lisp_bin .= ' ' . impl->('noinit_option');
+      }
   
       my @evals = ();
   
@@ -109,7 +119,8 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       for ( @{ $self->{load_libraries} } ) {
           push @evals, "(ql:quickload :$_)";
-          push @evals, "(shelly.util::shadowing-use-package :$_)";
+          push @evals,
+            "(and (find-package :$_) (shelly.util::shadowing-use-package :$_))";
       }
   
       {
@@ -197,9 +208,13 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
   Tell what Lisp implementation to use. The default is $LISP_IMPL.
   
-  =item B<-L, --load>
+  =item B<-L, --load [library1,library2,...]>
   
   Load libraries before executing the expression.
+  
+  =item B<--no-init>
+  
+  Do not load the user init file.
   
   =item B<--debug>
   
@@ -264,9 +279,7 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
   
   use App::shelly::config;
   
-  common + {
-      print_result => 1,
-  };
+  common + {};
   
   config ccl => +{
       impl_name     => 'ccl',
@@ -274,6 +287,7 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
       other_options => '--quiet',
       binary        => App::shelly::config::config('ccl')->{binary_path},
       core_option   => '-I',
+      noinit_option => '--no-init',
   };
   
   config sbcl => +{
@@ -283,15 +297,17 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
       other_options => '--quiet',
       binary        => App::shelly::config::config('sbcl')->{binary_path},
       core_option   => '--core',
+      noinit_option => '--no-userinit',
   };
   
   config alisp => +{
       impl_name     => 'alisp',
       pre_options   => '-L ~/.clinit.cl',
       eval          => '-e',
-      other_options => '-batch',
+      other_options => '',
       binary        => App::shelly::config::config('alisp')->{binary_path},
       core_option   => '-I',
+      noinit_option => '-q',
   };
   
   config clisp => +{
@@ -299,8 +315,8 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
       eval          => '-x',
       other_options => '-q --quiet',
       binary        => App::shelly::config::config('clisp')->{binary_path},
-      print_result  => 0,
       core_option   => '-M',
+      noinit_option => '-norc',
   };
   
   config cmucl => +{
@@ -309,6 +325,7 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
       other_options => '-quiet -batch',
       binary => App::shelly::config::config('cmucl')->{binary_path} || 'lisp',
       core_option => '-core',
+      noinit_option => '-noinit',
   };
   
   config ecl => +{
@@ -316,6 +333,7 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
       eval          => '-eval',
       other_options => '-q',
       binary        => App::shelly::config::config('ecl')->{binary_path},
+      noinit_option => '-norc',
   };
   
   1;
@@ -1034,7 +1052,7 @@ unless (caller) {
     my $app = App::shelly->new;
     $app->parse_options(@ARGV);
     if ( $app->{help} ) {
-        pod2usage( verbose => 1 );
+        pod2usage( verbose => 1, -exitval => 'noexit' );
     }
     $app->doit or exit(1);
 }
@@ -1060,9 +1078,13 @@ Show this help.
 
 Tell what Lisp implementation to use. The default is $LISP_IMPL.
 
-=item B<-L, --load>
+=item B<-L, --load [library1,library2,...]>
 
 Load libraries before executing the expression.
+
+=item B<--no-init>
+
+Do not load the user init file.
 
 =item B<--debug>
 

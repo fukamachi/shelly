@@ -24,6 +24,7 @@
 
 @export
 (defun install (&key quit-lisp)
+  "Install Shelly into your environment under \"~/.shelly\"."
   (ql:quickload :shelly)
 
   (let ((home-config-path
@@ -98,6 +99,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
 @export
 (defun dump-core (&key (quit-lisp t))
+  "Dump Lisp core image file for faster startup."
   (cond
     (quit-lisp
      (ql:quickload :shelly)
@@ -114,6 +116,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
 @export
 (defun rm-core ()
+  "Remove saved core image file which created by `dump-core'."
   (handler-case
       (progn (delete-file *dumped-core-path*)
              (format t "~&Successfully deleted: ~A~%"

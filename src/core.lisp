@@ -55,6 +55,7 @@
 
 @export
 (defun run-repl ()
+  "Start Read-Eval-Print Loop for interactive execution."
   (prompt)
   (loop for expr = (read-line *terminal-io* nil :eof)
         until (eq expr :eof)
