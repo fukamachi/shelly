@@ -75,7 +75,10 @@
   (unless (stringp arg0)
     (return-from canonicalize-arg arg0))
 
-  (let ((arg (handler-case (read-from-string arg0)
+  (let ((arg (handler-case (progn
+                             (in-package :cl-user)
+                             (unwind-protect (read-from-string arg0)
+                               (in-package :shelly.core)))
                 ((or reader-error package-error end-of-file) ()
                   arg0))))
     (cond
@@ -88,7 +91,8 @@
                :keyword))
       ((ignore-errors (fad:file-exists-p arg0)))
       ((and (not (keywordp arg))
-            (symbolp arg))
+            (symbolp arg)
+            (string= (package-name (symbol-package arg)) :common-lisp-user))
        (string arg0))
       (t arg))))
 
