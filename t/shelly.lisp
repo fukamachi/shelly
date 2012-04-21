@@ -7,6 +7,8 @@
 (defpackage shelly-test
   (:use :cl
         :cl-test-more)
+  (:shadowing-import-from :shelly.core
+                          :read)
   (:import-from :shelly.core
                 :canonicalize-arg))
 (in-package :shelly-test)
@@ -34,8 +36,9 @@
 (is (canonicalize-arg "--prompt")
     :prompt
     "keyword")
+
 (is (canonicalize-arg "'clack")
-    ''clack
+    ''cl-user::clack
     "quoted symbol")
 
 (is-type (canonicalize-arg

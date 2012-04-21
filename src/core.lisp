@@ -18,18 +18,15 @@
 
 (cl-annot:enable-annot-syntax)
 
+@export
 (defun shelly.core::read (expr)
   (destructuring-bind (fn &rest args) expr
-    (cons (handler-case (read-from-string fn)
+    (cons (handler-case (if (stringp fn)
+                            (read-from-string fn)
+                            fn)
             (error (c) (format t "Read-time error: ~A~%~A"
                                expr c)))
-          (mapcar #'(lambda (a)
-                      (let* ((a (canonicalize-arg a)))
-                        (if (and (not (keywordp a))
-                                 (not (typep a 'boolean))
-                                 (symbolp a))
-                            (string a)
-                            a)))
+          (mapcar #'canonicalize-arg
                   args))))
 
 (defun shelly.core::print (result)
@@ -75,9 +72,12 @@
         finally (quit-lisp)))
 
 (defun canonicalize-arg (arg0)
+  (unless (stringp arg0)
+    (return-from canonicalize-arg arg0))
+
   (let ((arg (handler-case (read-from-string arg0)
-               ((or reader-error package-error end-of-file) ()
-                 arg0))))
+                ((or reader-error package-error end-of-file) ()
+                  arg0))))
     (cond
       ((or (numberp arg) (consp arg) (typep arg 'boolean))
        arg)
@@ -86,8 +86,9 @@
                        (simple-error ())))
        (intern (subseq (string arg) 2)
                :keyword))
-      ((fad:file-exists-p (string arg)))
-      ((and (not (keywordp arg)) (symbolp arg))
+      ((ignore-errors (fad:file-exists-p arg0)))
+      ((and (not (keywordp arg))
+            (symbolp arg))
        (string arg0))
       (t arg))))
 
