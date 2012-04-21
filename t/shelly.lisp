@@ -46,4 +46,12 @@
          'pathname
          "pathname")
 
+(is (read '("+" "1" "2"))
+    '(+ 1 2)
+    "read")
+
+(is (read '("asdf:run-shell-command" "git status"))
+    '(asdf:run-shell-command "git status")
+    "read")
+
 (finalize)
