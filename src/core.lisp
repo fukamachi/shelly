@@ -79,8 +79,7 @@
                              (in-package :cl-user)
                              (unwind-protect (read-from-string arg0)
                                (in-package :shelly.core)))
-                ((or reader-error package-error end-of-file) ()
-                  arg0))))
+                (error () arg0))))
     (cond
       ((or (numberp arg) (consp arg) (typep arg 'boolean))
        arg)
