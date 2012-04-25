@@ -14,11 +14,21 @@ Shelly allows you to execute Common Lisp functions like a shell command.
 
 Warning: This software is still ALPHA quality. The APIs will be likely to change.
 
-## Requirement
+## Requirements
 
 - Lisp implementation (SBCL, Clozure CL, Allegro CL, GNU CLISP, CMUCL or ECL)
 - Perl5
-- Quicklisp
+- [Quicklisp](http://beta.quicklisp.org/) or ASDF (Quicklisp is recommended)
+
+## Dependencies
+
+All dependencies will be resolved by [Quicklisp](http://beta.quicklisp.org/), so you don't need to know about this.
+
+Though I recommend you to install [Quicklisp](http://beta.quicklisp.org/), if you decided to use ASDF for instead, you have to install these libraries before installation.
+
+- [CL-FAD](http://weitz.de/cl-fad/)
+- Swank (a part of [SLIME](http://common-lisp.net/project/slime/))
+- [cl-annot](https://github.com/arielnetworks/cl-annot)
 
 ## Installation
 
