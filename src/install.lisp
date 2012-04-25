@@ -103,7 +103,8 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
   (cond
     (quit-lisp
      (ql:quickload :shelly)
-     (shelly.util:shadowing-use-package :shelly))
+     (shelly.util:shadowing-use-package :shelly)
+     (save-core-image *dumped-core-path*))
     (T
      (asdf:run-shell-command "~A ~A '~A' ~A '~A' ~A '~S'"
       *current-lisp-path*
