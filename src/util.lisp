@@ -21,7 +21,8 @@
 
 @export
 (defun load-systems (systems)
-  (ql:quickload systems :verbose nil :prompt nil)
+  #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
+  #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil))
   (shadowing-use-package
    (remove-if-not #'find-package
                   (if (consp systems)

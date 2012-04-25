@@ -25,7 +25,8 @@
 @export
 (defun install (&key quit-lisp)
   "Install Shelly into your environment under \"~/.shelly\"."
-  (ql:quickload :shelly)
+  #+quicklisp (ql:quickload :shelly)
+  #-quicklisp (asdf:load-system :shelly)
 
   (let ((home-config-path
          (merge-pathnames ".shelly/" (user-homedir-pathname)))
@@ -102,14 +103,15 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
   "Dump Lisp core image file for faster startup."
   (cond
     (quit-lisp
-     (ql:quickload :shelly)
+     #+quicklisp (ql:quickload :shelly)
+     #-quicklisp (asdf:load-system :shelly)
      (shelly.util:shadowing-use-package :shelly)
      (save-core-image *dumped-core-path*))
     (T
      (asdf:run-shell-command "~A ~A '~A' ~A '~A' ~A '~S'"
       *current-lisp-path*
       *eval-option*
-      "(ql:quickload :shelly)"
+      "#+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)"
       *eval-option*
       "(shelly.util:shadowing-use-package :shelly)"
       *eval-option*
