@@ -68,6 +68,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       unless ( impl->('impl_name') ) {
           print "Unsupported CL implementation: @{[ $self->{lisp_impl} ]}\n";
+          print qq(It must be one of "sbcl", "ccl", "alisp", "clisp", "cmucl" or "ecl".\n);
           exit 1;
       }
   
@@ -83,7 +84,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   sub _build_command {
       my ($self) = @_;
   
-      my $lisp_bin = impl->('binary') || $self->{lisp_impl};
+      my $lisp_bin = impl->('binary') || $ENV{LISP_BINARY} || $self->{lisp_impl};
   
       if ( $self->{noinit} ) {
           $lisp_bin .= ' ' . impl->('noinit_option');
@@ -1066,6 +1067,7 @@ unless (caller) {
 }
 
 __END__
+
 =head1 NAME
 
 App::shelly
