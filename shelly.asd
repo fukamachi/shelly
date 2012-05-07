@@ -20,7 +20,8 @@
   :license "BSD"
   :depends-on (:cl-annot
                :swank
-               :cl-fad)
+               :cl-fad
+               :bordeaux-threads)
   :components ((:module "src"
                 :components
                 ((:file "shelly" :depends-on ("core" "install"))

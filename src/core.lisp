@@ -38,17 +38,33 @@
 (defun interpret (expr &key verbose)
   (when verbose
     (format *debug-io* "~&;-> ~S~%" expr))
-  (let ((expr (shelly.core::read expr)))
-    (when verbose
-      (format *debug-io* "~&;-> ~S~%" expr))
-    (handler-case (shelly.core::print (eval expr))
-      (program-error ()
-        (print-usage (car expr)))
-      (undefined-function (c)
-        (format *error-output* "Error: command not found: ~(~A~)"
-                (condition-undefined-function-name c)))
-      (error (c)
-        (format *error-output* "Error: ~A" c)))))
+  (let ((expr (shelly.core::read expr))
+        (system-threads #+thread-support (bt:all-threads)
+                        #-thread-support nil))
+    (labels ((alive-user-threads ()
+               (remove-if-not #'bt:thread-alive-p
+                              (set-difference
+                               #+thread-support (bt:all-threads)
+                               #-thread-support nil
+                               system-threads)))
+             (wait-user-threads ()
+               (loop while (alive-user-threads)
+                     do (sleep 1))))
+      (when verbose
+        (format *debug-io* "~&;-> ~S~%" expr))
+      (handler-case (shelly.core::print (eval expr))
+        (program-error ()
+          (print-usage (car expr)))
+        (undefined-function (c)
+          (format *error-output* "Error: command not found: ~(~A~)"
+                  (condition-undefined-function-name c)))
+        (error (c)
+          (format *error-output* "Error: ~A" c)))
+
+      (fresh-line)
+
+      (handler-case (wait-user-threads)
+        (condition () nil)))))
 
 (defun prompt ()
   (fresh-line)

@@ -29,6 +29,7 @@ Though I recommend you to install [Quicklisp](http://beta.quicklisp.org/), if yo
 - [CL-FAD](http://weitz.de/cl-fad/)
 - Swank (a part of [SLIME](http://common-lisp.net/project/slime/))
 - [cl-annot](https://github.com/arielnetworks/cl-annot)
+- [Bordeaux Threads](http://common-lisp.net/project/bordeaux-threads/)
 
 ## Installation
 
