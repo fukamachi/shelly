@@ -47,7 +47,9 @@
 ~:[~;~:*    binary_path => \"~A\",~]
 }
 "
-              *current-lisp-path*))
+              (or
+               (asdf:getenv "LISP_BINARY")
+               *current-lisp-path*)))
 
     (with-open-file (out (merge-pathnames "config" home-config-path)
                          :direction :output

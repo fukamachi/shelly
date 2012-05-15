@@ -84,7 +84,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   sub _build_command {
       my ($self) = @_;
   
-      my $lisp_bin = impl->('binary') || $ENV{LISP_BINARY} || $self->{lisp_impl};
+      my $lisp_bin = $ENV{LISP_BINARY} || impl->('binary') || $self->{lisp_impl};
   
       if ( $self->{noinit} ) {
           $lisp_bin .= ' ' . impl->('noinit_option');
@@ -17068,6 +17068,7 @@ unless (caller) {
     }
     $app->doit or exit(1);
 }
+
 __END__
 
 =head1 NAME
@@ -17108,4 +17109,3 @@ This flag is for Shelly developers.
 
 =back
 
-=cut
