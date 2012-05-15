@@ -117,7 +117,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
       *eval-option*
       "(shelly.util:shadowing-use-package :shelly)"
       *eval-option*
-      '(save-core-image *dumped-core-path*)))))
+      '(shelly.impl:save-core-image *dumped-core-path*)))))
 
 @export
 (defun rm-core ()
