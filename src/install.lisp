@@ -6,6 +6,8 @@
 (in-package :cl-user)
 (defpackage shelly.install
   (:use :cl)
+  (:import-from :asdf
+                :getenv)
   (:import-from :cl-fad
                 :copy-file
                 :file-exists-p)
@@ -48,7 +50,7 @@
 }
 "
               (or
-               (asdf:getenv "LISP_BINARY")
+               (getenv "LISP_BINARY")
                *current-lisp-path*)))
 
     (with-open-file (out (merge-pathnames "config" home-config-path)
