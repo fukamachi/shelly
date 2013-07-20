@@ -52,14 +52,25 @@
                      do (sleep 1))))
       (when verbose
         (format *debug-io* "~&;-> ~S~%" expr))
-      (handler-case (shelly.core::print (eval expr))
-        (program-error ()
-          (print-usage (car expr)))
-        (undefined-function (c)
-          (format *error-output* "Error: command not found: ~(~A~)"
-                  (condition-undefined-function-name c)))
-        (error (c)
-          (format *error-output* "Error: ~A" c)))
+
+      (let ((result
+             (multiple-value-list
+              (handler-case (eval expr)
+                (program-error ()
+                  (print-usage (car expr))
+                  (values))
+                (undefined-function (c)
+                  (let ((funcname (condition-undefined-function-name c)))
+                    (if (string-equal funcname (car expr))
+                        (format *error-output* "Error: command not found: ~(~S~)"
+                                funcname)
+                        (format *error-output* "Error: ~A" c)))
+                  (values))
+                (error (c)
+                  (format *error-output* "Error: ~A" c)
+                  (values))))))
+        (when result
+          (shelly.core::print (car result))))
 
       (fresh-line)
 
