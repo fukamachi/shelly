@@ -44,4 +44,6 @@
 @export
 (defun load-shlyfile (&optional (shlyfile  #P"shlyfile"))
   (when (file-exists-p shlyfile)
+    (pushnew (directory-namestring (asdf::truenamize shlyfile))
+             asdf:*central-registry*)
     (load shlyfile)))
