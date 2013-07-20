@@ -62,12 +62,12 @@
                 (undefined-function (c)
                   (let ((funcname (condition-undefined-function-name c)))
                     (if (string-equal funcname (car expr))
-                        (format *error-output* "Error: command not found: ~(~S~)"
+                        (format *error-output* "[error] command not found: ~(~S~)"
                                 funcname)
-                        (format *error-output* "Error: ~A" c)))
+                        (format *error-output* "[error] ~A" c)))
                   (values))
                 (error (c)
-                  (format *error-output* "Error: ~A" c)
+                  (format *error-output* "[error] ~A" c)
                   (values))))))
         (when result
           (shelly.core::print (car result))))
