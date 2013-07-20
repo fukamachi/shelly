@@ -5,7 +5,9 @@
 
 (in-package :cl-user)
 (defpackage shelly.util
-  (:use :cl))
+  (:use :cl)
+  (:import-from :cl-fad
+                :file-exists-p))
 (in-package :shelly.util)
 
 (cl-annot:enable-annot-syntax)
@@ -38,3 +40,8 @@
               "Warning: different version of Shelly was detected. Try \"shly install\".~%")
       (force-output *error-output*))
     (values)))
+
+@export
+(defun load-shlyfile (&optional (shlyfile  #P"shlyfile"))
+  (when (file-exists-p shlyfile)
+    (load shlyfile)))
