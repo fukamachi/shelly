@@ -17,7 +17,7 @@
 (defsystem shelly
   :version "0.2"
   :author "Eitarow Fukamachi"
-  :license "BSD"
+  :license "BSD 2-Clause"
   :depends-on (:cl-annot
                :swank
                :cl-fad
