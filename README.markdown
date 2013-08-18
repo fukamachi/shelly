@@ -18,7 +18,7 @@ Warning: This software is still ALPHA quality. The APIs will be likely to change
 
 - Lisp implementation (SBCL, Clozure CL, Allegro CL, GNU CLISP, CMUCL or ECL)
 - Perl5
-- [Quicklisp](http://beta.quicklisp.org/) or ASDF (Quicklisp is recommended)
+- [Quicklisp](http://beta.quicklisp.org/)
 
 ## Dependencies
 
@@ -41,6 +41,14 @@ or
     $ curl -L http://xrl.us/shly | LISP_IMPL=ccl perl - install
 
 Change `LISP_IMPL` to your Lisp implementation name which is one of `sbcl`, `ccl`, `alisp`, `clisp`, `cmucl` and `ecl`.
+
+### Install from source
+
+```
+$ git clone https://github.com/fukamachi/shelly.git
+$ cd shelly
+$ SHELLY_PATH=. bin/shly install
+```
 
 ## Configuration
 

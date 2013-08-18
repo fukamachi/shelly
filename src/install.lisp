@@ -10,7 +10,8 @@
                 :getenv)
   (:import-from :cl-fad
                 :copy-file
-                :file-exists-p)
+                :file-exists-p
+                :delete-directory-and-files)
   (:import-from :swank-backend
                 :quit-lisp)
   (:import-from :shelly.impl
@@ -19,7 +20,8 @@
                 :*eval-option*
                 :save-core-image)
   (:import-from :shelly.util
-                :shadowing-use-package))
+                :shadowing-use-package
+                :copy-directory))
 (in-package :shelly.install)
 
 (cl-annot:enable-annot-syntax)
@@ -27,9 +29,6 @@
 @export
 (defun install (&key quit-lisp)
   "Install Shelly into your environment under \"~/.shelly\"."
-  #+quicklisp (ql:quickload :shelly)
-  #-quicklisp (asdf:load-system :shelly)
-
   (let ((home-config-path
          (merge-pathnames ".shelly/" (user-homedir-pathname)))
         (shly-path
@@ -83,6 +82,12 @@
         (merge-pathnames "bin/shly" home-config-path)))
       (t
        (warn "Shelly script doesn't exist. Ignored.")))
+
+    (let ((shelly-dir (merge-pathnames #P"shelly/" home-config-path)))
+      (delete-directory-and-files shelly-dir
+                                  :if-does-not-exist :ignore)
+      (copy-directory (asdf:system-source-directory :shelly)
+                      shelly-dir))
 
     (dump-core :quit-lisp nil))
 

@@ -7,7 +7,9 @@
 (defpackage shelly.util
   (:use :cl)
   (:import-from :cl-fad
-                :file-exists-p))
+                :file-exists-p
+                :walk-directory
+                :copy-file))
 (in-package :shelly.util)
 
 (cl-annot:enable-annot-syntax)
@@ -47,3 +49,17 @@
     (pushnew (directory-namestring (asdf::truenamize shlyfile))
              asdf:*central-registry*)
     (load shlyfile)))
+
+@export
+(defun copy-directory (from to &key overwrite)
+  (let ((len (length (namestring (truename from)))))
+    (fad:walk-directory
+     from
+     (lambda (x)
+       (fad:copy-file
+        x
+        (ensure-directories-exist
+         (merge-pathnames
+          (subseq (namestring x) len)
+          to))
+        :overwrite overwrite)))))

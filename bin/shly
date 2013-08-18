@@ -15,7 +15,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   use File::Which qw(which);
   
   use App::shelly::impl;
-  use App::shelly::config qw(config dumped_core_path);
+  use App::shelly::config qw(config dumped_core_path shelly_path);
   
   sub impl {
       sub { App::shelly::impl->param(@_); }
@@ -106,8 +106,14 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly dump-core\".\n";
           }
   
-          push @evals, <<END_OF_LISP;
-  (let ((*standard-output* (make-broadcast-stream)))
+          if (my $shelly_path = shelly_path) {
+              push @evals, "(require (quote asdf))";
+              push @evals, qq'(setf asdf:*central-registry* (cons #P"$shelly_path" asdf:*central-registry*))';
+          }
+  
+          push @evals, <<"END_OF_LISP";
+  (let ((*standard-output* (make-broadcast-stream))
+        )
     (handler-case #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)
       (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
        (format *error-output* "~&[error] ~A~&" c)
@@ -129,8 +135,8 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           push @evals, "(shelly.util::load-systems :$_)";
       }
   
-      my $shlyfile = $self->{shlyfile} || 'shlyfile';
-      if (-f $shlyfile) {
+      my $shlyfile = exists $self->{shlyfile} ? $self->{shlyfile} : 'shlyfile';
+      if ($shlyfile && -f $shlyfile) {
           push @evals, qq{(shelly.util::load-shlyfile #P"$shlyfile")};
       }
   
@@ -250,8 +256,9 @@ $fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
   use strict;
   use warnings;
   use Exporter::Lite;
+  use Path::Class qw(dir);
   
-  our @EXPORT_OK = qw(config config_path dumped_core_path);
+  our @EXPORT_OK = qw(config config_path dumped_core_path shelly_path);
   
   my $local_base_path = $ENV{HOME} . '/.shelly/';
   
@@ -267,6 +274,13 @@ $fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
       }
   
       return local_path('config');
+  }
+  
+  # TODO: どちらも存在しないときはundefを返すべき
+  sub shelly_path {
+      return exists $ENV{SHELLY_PATH}
+          ? dir($ENV{SHELLY_PATH})->resolve . '/'
+          : local_path('shelly/');
   }
   
   sub dumped_core_path {
@@ -366,7 +380,7 @@ $fatpacked{"Config/ENV.pm"} = <<'CONFIG_ENV';
   
   use Carp;
   
-  our $VERSION = '0.11';
+  our $VERSION = '0.12';
   
   sub import {
   	my $class   = shift;
@@ -579,10 +593,10 @@ $fatpacked{"Config/ENV.pm"} = <<'CONFIG_ENV';
   
   =head2 EXPORT
   
-  You can specify default export name in config class. If you specify 'exports' option as following:
+  You can specify default export name in config class. If you specify 'export' option as following:
   
     package MyConfig;
-    use Config::ENV 'FOO_ENV', exports => 'config';
+    use Config::ENV 'FOO_ENV', export => 'config';
   
     ...;
   
@@ -635,847 +649,6 @@ $fatpacked{"Config/ENV.pm"} = <<'CONFIG_ENV';
   
   =cut
 CONFIG_ENV
-
-$fatpacked{"Exporter.pm"} = <<'EXPORTER';
-  package Exporter;
-  
-  require 5.006;
-  
-  # Be lean.
-  #use strict;
-  #no strict 'refs';
-  
-  our $Debug = 0;
-  our $ExportLevel = 0;
-  our $Verbose ||= 0;
-  our $VERSION = '5.65';
-  our (%Cache);
-  
-  sub as_heavy {
-    require Exporter::Heavy;
-    # Unfortunately, this does not work if the caller is aliased as *name = \&foo
-    # Thus the need to create a lot of identical subroutines
-    my $c = (caller(1))[3];
-    $c =~ s/.*:://;
-    \&{"Exporter::Heavy::heavy_$c"};
-  }
-  
-  sub export {
-    goto &{as_heavy()};
-  }
-  
-  sub import {
-    my $pkg = shift;
-    my $callpkg = caller($ExportLevel);
-  
-    if ($pkg eq "Exporter" and @_ and $_[0] eq "import") {
-      *{$callpkg."::import"} = \&import;
-      return;
-    }
-  
-    # We *need* to treat @{"$pkg\::EXPORT_FAIL"} since Carp uses it :-(
-    my $exports = \@{"$pkg\::EXPORT"};
-    # But, avoid creating things if they don't exist, which saves a couple of
-    # hundred bytes per package processed.
-    my $fail = ${$pkg . '::'}{EXPORT_FAIL} && \@{"$pkg\::EXPORT_FAIL"};
-    return export $pkg, $callpkg, @_
-      if $Verbose or $Debug or $fail && @$fail > 1;
-    my $export_cache = ($Cache{$pkg} ||= {});
-    my $args = @_ or @_ = @$exports;
-  
-    local $_;
-    if ($args and not %$export_cache) {
-      s/^&//, $export_cache->{$_} = 1
-        foreach (@$exports, @{"$pkg\::EXPORT_OK"});
-    }
-    my $heavy;
-    # Try very hard not to use {} and hence have to  enter scope on the foreach
-    # We bomb out of the loop with last as soon as heavy is set.
-    if ($args or $fail) {
-      ($heavy = (/\W/ or $args and not exists $export_cache->{$_}
-                 or $fail and @$fail and $_ eq $fail->[0])) and last
-                   foreach (@_);
-    } else {
-      ($heavy = /\W/) and last
-        foreach (@_);
-    }
-    return export $pkg, $callpkg, ($args ? @_ : ()) if $heavy;
-    local $SIG{__WARN__} = 
-  	sub {require Carp; &Carp::carp} if not $SIG{__WARN__};
-    # shortcut for the common case of no type character
-    *{"$callpkg\::$_"} = \&{"$pkg\::$_"} foreach @_;
-  }
-  
-  # Default methods
-  
-  sub export_fail {
-      my $self = shift;
-      @_;
-  }
-  
-  # Unfortunately, caller(1)[3] "does not work" if the caller is aliased as
-  # *name = \&foo.  Thus the need to create a lot of identical subroutines
-  # Otherwise we could have aliased them to export().
-  
-  sub export_to_level {
-    goto &{as_heavy()};
-  }
-  
-  sub export_tags {
-    goto &{as_heavy()};
-  }
-  
-  sub export_ok_tags {
-    goto &{as_heavy()};
-  }
-  
-  sub require_version {
-    goto &{as_heavy()};
-  }
-  
-  1;
-  __END__
-  
-  =head1 NAME
-  
-  Exporter - Implements default import method for modules
-  
-  =head1 SYNOPSIS
-  
-  In module F<YourModule.pm>:
-  
-    package YourModule;
-    require Exporter;
-    @ISA = qw(Exporter);
-    @EXPORT_OK = qw(munge frobnicate);  # symbols to export on request
-  
-  or
-  
-    package YourModule;
-    use Exporter 'import'; # gives you Exporter's import() method directly
-    @EXPORT_OK = qw(munge frobnicate);  # symbols to export on request
-  
-  In other files which wish to use C<YourModule>:
-  
-    use YourModule qw(frobnicate);      # import listed symbols
-    frobnicate ($left, $right)          # calls YourModule::frobnicate
-  
-  Take a look at L</Good Practices> for some variants
-  you will like to use in modern Perl code.
-  
-  =head1 DESCRIPTION
-  
-  The Exporter module implements an C<import> method which allows a module
-  to export functions and variables to its users' namespaces. Many modules
-  use Exporter rather than implementing their own C<import> method because
-  Exporter provides a highly flexible interface, with an implementation optimised
-  for the common case.
-  
-  Perl automatically calls the C<import> method when processing a
-  C<use> statement for a module. Modules and C<use> are documented
-  in L<perlfunc> and L<perlmod>. Understanding the concept of
-  modules and how the C<use> statement operates is important to
-  understanding the Exporter.
-  
-  =head2 How to Export
-  
-  The arrays C<@EXPORT> and C<@EXPORT_OK> in a module hold lists of
-  symbols that are going to be exported into the users name space by
-  default, or which they can request to be exported, respectively.  The
-  symbols can represent functions, scalars, arrays, hashes, or typeglobs.
-  The symbols must be given by full name with the exception that the
-  ampersand in front of a function is optional, e.g.
-  
-      @EXPORT    = qw(afunc $scalar @array);   # afunc is a function
-      @EXPORT_OK = qw(&bfunc %hash *typeglob); # explicit prefix on &bfunc
-  
-  If you are only exporting function names it is recommended to omit the
-  ampersand, as the implementation is faster this way.
-  
-  =head2 Selecting What To Export
-  
-  Do B<not> export method names!
-  
-  Do B<not> export anything else by default without a good reason!
-  
-  Exports pollute the namespace of the module user.  If you must export
-  try to use C<@EXPORT_OK> in preference to C<@EXPORT> and avoid short or
-  common symbol names to reduce the risk of name clashes.
-  
-  Generally anything not exported is still accessible from outside the
-  module using the C<YourModule::item_name> (or C<< $blessed_ref->method >>)
-  syntax.  By convention you can use a leading underscore on names to
-  informally indicate that they are 'internal' and not for public use.
-  
-  (It is actually possible to get private functions by saying:
-  
-    my $subref = sub { ... };
-    $subref->(@args);            # Call it as a function
-    $obj->$subref(@args);        # Use it as a method
-  
-  However if you use them for methods it is up to you to figure out
-  how to make inheritance work.)
-  
-  As a general rule, if the module is trying to be object oriented
-  then export nothing. If it's just a collection of functions then
-  C<@EXPORT_OK> anything but use C<@EXPORT> with caution. For function and
-  method names use barewords in preference to names prefixed with
-  ampersands for the export lists.
-  
-  Other module design guidelines can be found in L<perlmod>.
-  
-  =head2 How to Import
-  
-  In other files which wish to use your module there are three basic ways for
-  them to load your module and import its symbols:
-  
-  =over 4
-  
-  =item C<use YourModule;>
-  
-  This imports all the symbols from YourModule's C<@EXPORT> into the namespace
-  of the C<use> statement.
-  
-  =item C<use YourModule ();>
-  
-  This causes perl to load your module but does not import any symbols.
-  
-  =item C<use YourModule qw(...);>
-  
-  This imports only the symbols listed by the caller into their namespace.
-  All listed symbols must be in your C<@EXPORT> or C<@EXPORT_OK>, else an error
-  occurs. The advanced export features of Exporter are accessed like this,
-  but with list entries that are syntactically distinct from symbol names.
-  
-  =back
-  
-  Unless you want to use its advanced features, this is probably all you
-  need to know to use Exporter.
-  
-  =head1 Advanced features
-  
-  =head2 Specialised Import Lists
-  
-  If any of the entries in an import list begins with !, : or / then
-  the list is treated as a series of specifications which either add to
-  or delete from the list of names to import. They are processed left to
-  right. Specifications are in the form:
-  
-      [!]name         This name only
-      [!]:DEFAULT     All names in @EXPORT
-      [!]:tag         All names in $EXPORT_TAGS{tag} anonymous list
-      [!]/pattern/    All names in @EXPORT and @EXPORT_OK which match
-  
-  A leading ! indicates that matching names should be deleted from the
-  list of names to import.  If the first specification is a deletion it
-  is treated as though preceded by :DEFAULT. If you just want to import
-  extra names in addition to the default set you will still need to
-  include :DEFAULT explicitly.
-  
-  e.g., F<Module.pm> defines:
-  
-      @EXPORT      = qw(A1 A2 A3 A4 A5);
-      @EXPORT_OK   = qw(B1 B2 B3 B4 B5);
-      %EXPORT_TAGS = (T1 => [qw(A1 A2 B1 B2)], T2 => [qw(A1 A2 B3 B4)]);
-  
-      Note that you cannot use tags in @EXPORT or @EXPORT_OK.
-      Names in EXPORT_TAGS must also appear in @EXPORT or @EXPORT_OK.
-  
-  An application using Module can say something like:
-  
-      use Module qw(:DEFAULT :T2 !B3 A3);
-  
-  Other examples include:
-  
-      use Socket qw(!/^[AP]F_/ !SOMAXCONN !SOL_SOCKET);
-      use POSIX  qw(:errno_h :termios_h !TCSADRAIN !/^EXIT/);
-  
-  Remember that most patterns (using //) will need to be anchored
-  with a leading ^, e.g., C</^EXIT/> rather than C</EXIT/>.
-  
-  You can say C<BEGIN { $Exporter::Verbose=1 }> to see how the
-  specifications are being processed and what is actually being imported
-  into modules.
-  
-  =head2 Exporting without using Exporter's import method
-  
-  Exporter has a special method, 'export_to_level' which is used in situations
-  where you can't directly call Exporter's import method. The export_to_level
-  method looks like:
-  
-      MyPackage->export_to_level($where_to_export, $package, @what_to_export);
-  
-  where C<$where_to_export> is an integer telling how far up the calling stack
-  to export your symbols, and C<@what_to_export> is an array telling what
-  symbols *to* export (usually this is C<@_>).  The C<$package> argument is
-  currently unused.
-  
-  For example, suppose that you have a module, A, which already has an
-  import function:
-  
-      package A;
-  
-      @ISA = qw(Exporter);
-      @EXPORT_OK = qw ($b);
-  
-      sub import
-      {
-  	$A::b = 1;     # not a very useful import method
-      }
-  
-  and you want to Export symbol C<$A::b> back to the module that called 
-  package A. Since Exporter relies on the import method to work, via 
-  inheritance, as it stands Exporter::import() will never get called. 
-  Instead, say the following:
-  
-      package A;
-      @ISA = qw(Exporter);
-      @EXPORT_OK = qw ($b);
-  
-      sub import
-      {
-  	$A::b = 1;
-  	A->export_to_level(1, @_);
-      }
-  
-  This will export the symbols one level 'above' the current package - ie: to 
-  the program or module that used package A. 
-  
-  Note: Be careful not to modify C<@_> at all before you call export_to_level
-  - or people using your package will get very unexplained results!
-  
-  =head2 Exporting without inheriting from Exporter
-  
-  By including Exporter in your C<@ISA> you inherit an Exporter's import() method
-  but you also inherit several other helper methods which you probably don't
-  want. To avoid this you can do
-  
-    package YourModule;
-    use Exporter qw( import );
-  
-  which will export Exporter's own import() method into YourModule.
-  Everything will work as before but you won't need to include Exporter in
-  C<@YourModule::ISA>.
-  
-  Note: This feature was introduced in version 5.57
-  of Exporter, released with perl 5.8.3.
-  
-  =head2 Module Version Checking
-  
-  The Exporter module will convert an attempt to import a number from a
-  module into a call to C<< $module_name->require_version($value) >>. This can
-  be used to validate that the version of the module being used is
-  greater than or equal to the required version.
-  
-  The Exporter module supplies a default C<require_version> method which
-  checks the value of C<$VERSION> in the exporting module.
-  
-  Since the default C<require_version> method treats the C<$VERSION> number as
-  a simple numeric value it will regard version 1.10 as lower than
-  1.9. For this reason it is strongly recommended that you use numbers
-  with at least two decimal places, e.g., 1.09.
-  
-  =head2 Managing Unknown Symbols
-  
-  In some situations you may want to prevent certain symbols from being
-  exported. Typically this applies to extensions which have functions
-  or constants that may not exist on some systems.
-  
-  The names of any symbols that cannot be exported should be listed
-  in the C<@EXPORT_FAIL> array.
-  
-  If a module attempts to import any of these symbols the Exporter
-  will give the module an opportunity to handle the situation before
-  generating an error. The Exporter will call an export_fail method
-  with a list of the failed symbols:
-  
-    @failed_symbols = $module_name->export_fail(@failed_symbols);
-  
-  If the C<export_fail> method returns an empty list then no error is
-  recorded and all the requested symbols are exported. If the returned
-  list is not empty then an error is generated for each symbol and the
-  export fails. The Exporter provides a default C<export_fail> method which
-  simply returns the list unchanged.
-  
-  Uses for the C<export_fail> method include giving better error messages
-  for some symbols and performing lazy architectural checks (put more
-  symbols into C<@EXPORT_FAIL> by default and then take them out if someone
-  actually tries to use them and an expensive check shows that they are
-  usable on that platform).
-  
-  =head2 Tag Handling Utility Functions
-  
-  Since the symbols listed within C<%EXPORT_TAGS> must also appear in either
-  C<@EXPORT> or C<@EXPORT_OK>, two utility functions are provided which allow
-  you to easily add tagged sets of symbols to C<@EXPORT> or C<@EXPORT_OK>:
-  
-    %EXPORT_TAGS = (foo => [qw(aa bb cc)], bar => [qw(aa cc dd)]);
-  
-    Exporter::export_tags('foo');     # add aa, bb and cc to @EXPORT
-    Exporter::export_ok_tags('bar');  # add aa, cc and dd to @EXPORT_OK
-  
-  Any names which are not tags are added to C<@EXPORT> or C<@EXPORT_OK>
-  unchanged but will trigger a warning (with C<-w>) to avoid misspelt tags
-  names being silently added to C<@EXPORT> or C<@EXPORT_OK>. Future versions
-  may make this a fatal error.
-  
-  =head2 Generating combined tags
-  
-  If several symbol categories exist in C<%EXPORT_TAGS>, it's usually
-  useful to create the utility ":all" to simplify "use" statements.
-  
-  The simplest way to do this is:
-  
-    %EXPORT_TAGS = (foo => [qw(aa bb cc)], bar => [qw(aa cc dd)]);
-  
-    # add all the other ":class" tags to the ":all" class,
-    # deleting duplicates
-    {
-      my %seen;
-  
-      push @{$EXPORT_TAGS{all}},
-        grep {!$seen{$_}++} @{$EXPORT_TAGS{$_}} foreach keys %EXPORT_TAGS;
-    }
-  
-  F<CGI.pm> creates an ":all" tag which contains some (but not really
-  all) of its categories.  That could be done with one small
-  change:
-  
-    # add some of the other ":class" tags to the ":all" class,
-    # deleting duplicates
-    {
-      my %seen;
-  
-      push @{$EXPORT_TAGS{all}},
-        grep {!$seen{$_}++} @{$EXPORT_TAGS{$_}}
-          foreach qw/html2 html3 netscape form cgi internal/;
-    }
-  
-  Note that the tag names in C<%EXPORT_TAGS> don't have the leading ':'.
-  
-  =head2 C<AUTOLOAD>ed Constants
-  
-  Many modules make use of C<AUTOLOAD>ing for constant subroutines to
-  avoid having to compile and waste memory on rarely used values (see
-  L<perlsub> for details on constant subroutines).  Calls to such
-  constant subroutines are not optimized away at compile time because
-  they can't be checked at compile time for constancy.
-  
-  Even if a prototype is available at compile time, the body of the
-  subroutine is not (it hasn't been C<AUTOLOAD>ed yet). perl needs to
-  examine both the C<()> prototype and the body of a subroutine at
-  compile time to detect that it can safely replace calls to that
-  subroutine with the constant value.
-  
-  A workaround for this is to call the constants once in a C<BEGIN> block:
-  
-     package My ;
-  
-     use Socket ;
-  
-     foo( SO_LINGER );     ## SO_LINGER NOT optimized away; called at runtime
-     BEGIN { SO_LINGER }
-     foo( SO_LINGER );     ## SO_LINGER optimized away at compile time.
-  
-  This forces the C<AUTOLOAD> for C<SO_LINGER> to take place before
-  SO_LINGER is encountered later in C<My> package.
-  
-  If you are writing a package that C<AUTOLOAD>s, consider forcing
-  an C<AUTOLOAD> for any constants explicitly imported by other packages
-  or which are usually used when your package is C<use>d.
-  
-  =head1 Good Practices
-  
-  =head2 Declaring C<@EXPORT_OK> and Friends
-  
-  When using C<Exporter> with the standard C<strict> and C<warnings>
-  pragmas, the C<our> keyword is needed to declare the package
-  variables C<@EXPORT_OK>, C<@EXPORT>, C<@ISA>, etc.
-  
-    our @ISA = qw(Exporter);
-    our @EXPORT_OK = qw(munge frobnicate);
-  
-  If backward compatibility for Perls under 5.6 is important,
-  one must write instead a C<use vars> statement.
-  
-    use vars qw(@ISA @EXPORT_OK);
-    @ISA = qw(Exporter);
-    @EXPORT_OK = qw(munge frobnicate);
-  
-  =head2 Playing Safe
-  
-  There are some caveats with the use of runtime statements
-  like C<require Exporter> and the assignment to package
-  variables, which can very subtle for the unaware programmer.
-  This may happen for instance with mutually recursive
-  modules, which are affected by the time the relevant
-  constructions are executed.
-  
-  The ideal (but a bit ugly) way to never have to think
-  about that is to use C<BEGIN> blocks. So the first part
-  of the L</SYNOPSIS> code could be rewritten as:
-  
-    package YourModule;
-  
-    use strict;
-    use warnings;
-  
-    our (@ISA, @EXPORT_OK);
-    BEGIN {
-       require Exporter;
-       @ISA = qw(Exporter);
-       @EXPORT_OK = qw(munge frobnicate);  # symbols to export on request
-    }
-  
-  The C<BEGIN> will assure that the loading of F<Exporter.pm>
-  and the assignments to C<@ISA> and C<@EXPORT_OK> happen
-  immediately, leaving no room for something to get awry
-  or just plain wrong.
-  
-  With respect to loading C<Exporter> and inheriting, there
-  are alternatives with the use of modules like C<base> and C<parent>.
-  
-    use base qw( Exporter );
-    # or
-    use parent qw( Exporter );
-  
-  Any of these statements are nice replacements for
-  C<BEGIN { require Exporter; @ISA = qw(Exporter); }>
-  with the same compile-time effect. The basic difference
-  is that C<base> code interacts with declared C<fields>
-  while C<parent> is a streamlined version of the older
-  C<base> code to just establish the IS-A relationship.
-  
-  For more details, see the documentation and code of
-  L<base> and L<parent>.
-  
-  Another thorough remedy to that runtime vs. 
-  compile-time trap is to use L<Exporter::Easy>,
-  which is a wrapper of Exporter that allows all
-  boilerplate code at a single gulp in the
-  use statement.
-  
-     use Exporter::Easy (
-         OK => [ qw(munge frobnicate) ],
-     );
-     # @ISA setup is automatic
-     # all assignments happen at compile time
-  
-  =head2 What not to Export
-  
-  You have been warned already in L</Selecting What To Export>
-  to not export:
-  
-  =over 4
-  
-  =item *
-  
-  method names (because you don't need to
-  and that's likely to not do what you want),
-  
-  =item *
-  
-  anything by default (because you don't want to surprise your users...
-  badly)
-  
-  =item *
-  
-  anything you don't need to (because less is more)
-  
-  =back
-  
-  There's one more item to add to this list. Do B<not>
-  export variable names. Just because C<Exporter> lets you
-  do that, it does not mean you should.
-  
-    @EXPORT_OK = qw( $svar @avar %hvar ); # DON'T!
-  
-  Exporting variables is not a good idea. They can
-  change under the hood, provoking horrible
-  effects at-a-distance, that are too hard to track
-  and to fix. Trust me: they are not worth it.
-  
-  To provide the capability to set/get class-wide
-  settings, it is best instead to provide accessors
-  as subroutines or class methods instead.
-  
-  =head1 SEE ALSO
-  
-  C<Exporter> is definitely not the only module with
-  symbol exporter capabilities. At CPAN, you may find
-  a bunch of them. Some are lighter. Some
-  provide improved APIs and features. Peek the one
-  that fits your needs. The following is
-  a sample list of such modules.
-  
-      Exporter::Easy
-      Exporter::Lite
-      Exporter::Renaming
-      Exporter::Tidy
-      Sub::Exporter / Sub::Installer
-      Perl6::Export / Perl6::Export::Attrs
-  
-  =head1 LICENSE
-  
-  This library is free software. You can redistribute it
-  and/or modify it under the same terms as Perl itself.
-  
-  =cut
-  
-  
-  
-EXPORTER
-
-$fatpacked{"Exporter/Heavy.pm"} = <<'EXPORTER_HEAVY';
-  package Exporter::Heavy;
-  
-  use strict;
-  no strict 'refs';
-  
-  # On one line so MakeMaker will see it.
-  require Exporter;  our $VERSION = $Exporter::VERSION;
-  
-  =head1 NAME
-  
-  Exporter::Heavy - Exporter guts
-  
-  =head1 SYNOPSIS
-  
-  (internal use only)
-  
-  =head1 DESCRIPTION
-  
-  No user-serviceable parts inside.
-  
-  =cut
-  
-  #
-  # We go to a lot of trouble not to 'require Carp' at file scope,
-  #  because Carp requires Exporter, and something has to give.
-  #
-  
-  sub _rebuild_cache {
-      my ($pkg, $exports, $cache) = @_;
-      s/^&// foreach @$exports;
-      @{$cache}{@$exports} = (1) x @$exports;
-      my $ok = \@{"${pkg}::EXPORT_OK"};
-      if (@$ok) {
-  	s/^&// foreach @$ok;
-  	@{$cache}{@$ok} = (1) x @$ok;
-      }
-  }
-  
-  sub heavy_export {
-  
-      # First make import warnings look like they're coming from the "use".
-      local $SIG{__WARN__} = sub {
-  	my $text = shift;
-  	if ($text =~ s/ at \S*Exporter\S*.pm line \d+.*\n//) {
-  	    require Carp;
-  	    local $Carp::CarpLevel = 1;	# ignore package calling us too.
-  	    Carp::carp($text);
-  	}
-  	else {
-  	    warn $text;
-  	}
-      };
-      local $SIG{__DIE__} = sub {
-  	require Carp;
-  	local $Carp::CarpLevel = 1;	# ignore package calling us too.
-  	Carp::croak("$_[0]Illegal null symbol in \@${1}::EXPORT")
-  	    if $_[0] =~ /^Unable to create sub named "(.*?)::"/;
-      };
-  
-      my($pkg, $callpkg, @imports) = @_;
-      my($type, $sym, $cache_is_current, $oops);
-      my($exports, $export_cache) = (\@{"${pkg}::EXPORT"},
-                                     $Exporter::Cache{$pkg} ||= {});
-  
-      if (@imports) {
-  	if (!%$export_cache) {
-  	    _rebuild_cache ($pkg, $exports, $export_cache);
-  	    $cache_is_current = 1;
-  	}
-  
-  	if (grep m{^[/!:]}, @imports) {
-  	    my $tagsref = \%{"${pkg}::EXPORT_TAGS"};
-  	    my $tagdata;
-  	    my %imports;
-  	    my($remove, $spec, @names, @allexports);
-  	    # negated first item implies starting with default set:
-  	    unshift @imports, ':DEFAULT' if $imports[0] =~ m/^!/;
-  	    foreach $spec (@imports){
-  		$remove = $spec =~ s/^!//;
-  
-  		if ($spec =~ s/^://){
-  		    if ($spec eq 'DEFAULT'){
-  			@names = @$exports;
-  		    }
-  		    elsif ($tagdata = $tagsref->{$spec}) {
-  			@names = @$tagdata;
-  		    }
-  		    else {
-  			warn qq["$spec" is not defined in %${pkg}::EXPORT_TAGS];
-  			++$oops;
-  			next;
-  		    }
-  		}
-  		elsif ($spec =~ m:^/(.*)/$:){
-  		    my $patn = $1;
-  		    @allexports = keys %$export_cache unless @allexports; # only do keys once
-  		    @names = grep(/$patn/, @allexports); # not anchored by default
-  		}
-  		else {
-  		    @names = ($spec); # is a normal symbol name
-  		}
-  
-  		warn "Import ".($remove ? "del":"add").": @names "
-  		    if $Exporter::Verbose;
-  
-  		if ($remove) {
-  		   foreach $sym (@names) { delete $imports{$sym} } 
-  		}
-  		else {
-  		    @imports{@names} = (1) x @names;
-  		}
-  	    }
-  	    @imports = keys %imports;
-  	}
-  
-          my @carp;
-  	foreach $sym (@imports) {
-  	    if (!$export_cache->{$sym}) {
-  		if ($sym =~ m/^\d/) {
-  		    $pkg->VERSION($sym); # inherit from UNIVERSAL
-  		    # If the version number was the only thing specified
-  		    # then we should act as if nothing was specified:
-  		    if (@imports == 1) {
-  			@imports = @$exports;
-  			last;
-  		    }
-  		    # We need a way to emulate 'use Foo ()' but still
-  		    # allow an easy version check: "use Foo 1.23, ''";
-  		    if (@imports == 2 and !$imports[1]) {
-  			@imports = ();
-  			last;
-  		    }
-  		} elsif ($sym !~ s/^&// || !$export_cache->{$sym}) {
-  		    # Last chance - see if they've updated EXPORT_OK since we
-  		    # cached it.
-  
-  		    unless ($cache_is_current) {
-  			%$export_cache = ();
-  			_rebuild_cache ($pkg, $exports, $export_cache);
-  			$cache_is_current = 1;
-  		    }
-  
-  		    if (!$export_cache->{$sym}) {
-  			# accumulate the non-exports
-  			push @carp,
-  			  qq["$sym" is not exported by the $pkg module\n];
-  			$oops++;
-  		    }
-  		}
-  	    }
-  	}
-  	if ($oops) {
-  	    require Carp;
-  	    Carp::croak("@{carp}Can't continue after import errors");
-  	}
-      }
-      else {
-  	@imports = @$exports;
-      }
-  
-      my($fail, $fail_cache) = (\@{"${pkg}::EXPORT_FAIL"},
-                                $Exporter::FailCache{$pkg} ||= {});
-  
-      if (@$fail) {
-  	if (!%$fail_cache) {
-  	    # Build cache of symbols. Optimise the lookup by adding
-  	    # barewords twice... both with and without a leading &.
-  	    # (Technique could be applied to $export_cache at cost of memory)
-  	    my @expanded = map { /^\w/ ? ($_, '&'.$_) : $_ } @$fail;
-  	    warn "${pkg}::EXPORT_FAIL cached: @expanded" if $Exporter::Verbose;
-  	    @{$fail_cache}{@expanded} = (1) x @expanded;
-  	}
-  	my @failed;
-  	foreach $sym (@imports) { push(@failed, $sym) if $fail_cache->{$sym} }
-  	if (@failed) {
-  	    @failed = $pkg->export_fail(@failed);
-  	    foreach $sym (@failed) {
-                  require Carp;
-  		Carp::carp(qq["$sym" is not implemented by the $pkg module ],
-  			"on this architecture");
-  	    }
-  	    if (@failed) {
-  		require Carp;
-  		Carp::croak("Can't continue after import errors");
-  	    }
-  	}
-      }
-  
-      warn "Importing into $callpkg from $pkg: ",
-  		join(", ",sort @imports) if $Exporter::Verbose;
-  
-      foreach $sym (@imports) {
-  	# shortcut for the common case of no type character
-  	(*{"${callpkg}::$sym"} = \&{"${pkg}::$sym"}, next)
-  	    unless $sym =~ s/^(\W)//;
-  	$type = $1;
-  	no warnings 'once';
-  	*{"${callpkg}::$sym"} =
-  	    $type eq '&' ? \&{"${pkg}::$sym"} :
-  	    $type eq '$' ? \${"${pkg}::$sym"} :
-  	    $type eq '@' ? \@{"${pkg}::$sym"} :
-  	    $type eq '%' ? \%{"${pkg}::$sym"} :
-  	    $type eq '*' ?  *{"${pkg}::$sym"} :
-  	    do { require Carp; Carp::croak("Can't export symbol: $type$sym") };
-      }
-  }
-  
-  sub heavy_export_to_level
-  {
-        my $pkg = shift;
-        my $level = shift;
-        (undef) = shift;			# XXX redundant arg
-        my $callpkg = caller($level);
-        $pkg->export($callpkg, @_);
-  }
-  
-  # Utility functions
-  
-  sub _push_tags {
-      my($pkg, $var, $syms) = @_;
-      my @nontag = ();
-      my $export_tags = \%{"${pkg}::EXPORT_TAGS"};
-      push(@{"${pkg}::$var"},
-  	map { $export_tags->{$_} ? @{$export_tags->{$_}} 
-                                   : scalar(push(@nontag,$_),$_) }
-  		(@$syms) ? @$syms : keys %$export_tags);
-      if (@nontag and $^W) {
-  	# This may change to a die one day
-  	require Carp;
-  	Carp::carp(join(", ", @nontag)." are not tags of $pkg");
-      }
-  }
-  
-  sub heavy_require_version {
-      my($self, $wanted) = @_;
-      my $pkg = ref $self || $self;
-      return ${pkg}->VERSION($wanted);
-  }
-  
-  sub heavy_export_tags {
-    _push_tags((caller)[0], "EXPORT",    \@_);
-  }
-  
-  sub heavy_export_ok_tags {
-    _push_tags((caller)[0], "EXPORT_OK", \@_);
-  }
-  
-  1;
-EXPORTER_HEAVY
 
 $fatpacked{"Exporter/Lite.pm"} = <<'EXPORTER_LITE';
   package Exporter::Lite;
@@ -1933,6 +1106,1621 @@ $fatpacked{"File/Which.pm"} = <<'FILE_WHICH';
   =cut
 FILE_WHICH
 
+$fatpacked{"Path/Class.pm"} = <<'PATH_CLASS';
+  use strict;
+  
+  package Path::Class;
+  {
+    $Path::Class::VERSION = '0.32';
+  }
+  
+  {
+    ## no critic
+    no strict 'vars';
+    @ISA = qw(Exporter);
+    @EXPORT    = qw(file dir);
+    @EXPORT_OK = qw(file dir foreign_file foreign_dir tempdir);
+  }
+  
+  use Exporter;
+  use Path::Class::File;
+  use Path::Class::Dir;
+  use File::Temp ();
+  
+  sub file { Path::Class::File->new(@_) }
+  sub dir  { Path::Class::Dir ->new(@_) }
+  sub foreign_file { Path::Class::File->new_foreign(@_) }
+  sub foreign_dir  { Path::Class::Dir ->new_foreign(@_) }
+  sub tempdir { Path::Class::Dir->new(File::Temp::tempdir(@_)) }
+  
+  
+  1;
+  __END__
+  
+  =head1 NAME
+  
+  Path::Class - Cross-platform path specification manipulation
+  
+  =head1 VERSION
+  
+  version 0.32
+  
+  =head1 SYNOPSIS
+  
+    use Path::Class;
+    
+    my $dir  = dir('foo', 'bar');       # Path::Class::Dir object
+    my $file = file('bob', 'file.txt'); # Path::Class::File object
+    
+    # Stringifies to 'foo/bar' on Unix, 'foo\bar' on Windows, etc.
+    print "dir: $dir\n";
+    
+    # Stringifies to 'bob/file.txt' on Unix, 'bob\file.txt' on Windows
+    print "file: $file\n";
+    
+    my $subdir  = $dir->subdir('baz');  # foo/bar/baz
+    my $parent  = $subdir->parent;      # foo/bar
+    my $parent2 = $parent->parent;      # foo
+    
+    my $dir2 = $file->dir;              # bob
+  
+    # Work with foreign paths
+    use Path::Class qw(foreign_file foreign_dir);
+    my $file = foreign_file('Mac', ':foo:file.txt');
+    print $file->dir;                   # :foo:
+    print $file->as_foreign('Win32');   # foo\file.txt
+    
+    # Interact with the underlying filesystem:
+    
+    # $dir_handle is an IO::Dir object
+    my $dir_handle = $dir->open or die "Can't read $dir: $!";
+    
+    # $file_handle is an IO::File object
+    my $file_handle = $file->open($mode) or die "Can't read $file: $!";
+  
+  =head1 DESCRIPTION
+  
+  C<Path::Class> is a module for manipulation of file and directory
+  specifications (strings describing their locations, like
+  C<'/home/ken/foo.txt'> or C<'C:\Windows\Foo.txt'>) in a cross-platform
+  manner.  It supports pretty much every platform Perl runs on,
+  including Unix, Windows, Mac, VMS, Epoc, Cygwin, OS/2, and NetWare.
+  
+  The well-known module L<File::Spec> also provides this service, but
+  it's sort of awkward to use well, so people sometimes avoid it, or use
+  it in a way that won't actually work properly on platforms
+  significantly different than the ones they've tested their code on.
+  
+  In fact, C<Path::Class> uses C<File::Spec> internally, wrapping all
+  the unsightly details so you can concentrate on your application code.
+  Whereas C<File::Spec> provides functions for some common path
+  manipulations, C<Path::Class> provides an object-oriented model of the
+  world of path specifications and their underlying semantics.
+  C<File::Spec> doesn't create any objects, and its classes represent
+  the different ways in which paths must be manipulated on various
+  platforms (not a very intuitive concept).  C<Path::Class> creates
+  objects representing files and directories, and provides methods that
+  relate them to each other.  For instance, the following C<File::Spec>
+  code:
+  
+   my $absolute = File::Spec->file_name_is_absolute(
+                    File::Spec->catfile( @dirs, $file )
+                  );
+  
+  can be written using C<Path::Class> as
+  
+   my $absolute = Path::Class::File->new( @dirs, $file )->is_absolute;
+  
+  or even as 
+  
+   my $absolute = file( @dirs, $file )->is_absolute;
+  
+  Similar readability improvements should happen all over the place when
+  using C<Path::Class>.
+  
+  Using C<Path::Class> can help solve real problems in your code too -
+  for instance, how many people actually take the "volume" (like C<C:>
+  on Windows) into account when writing C<File::Spec>-using code?  I
+  thought not.  But if you use C<Path::Class>, your file and directory objects
+  will know what volumes they refer to and do the right thing.
+  
+  The guts of the C<Path::Class> code live in the L<Path::Class::File>
+  and L<Path::Class::Dir> modules, so please see those
+  modules' documentation for more details about how to use them.
+  
+  =head2 EXPORT
+  
+  The following functions are exported by default.
+  
+  =over 4
+  
+  =item file
+  
+  A synonym for C<< Path::Class::File->new >>.
+  
+  =item dir
+  
+  A synonym for C<< Path::Class::Dir->new >>.
+  
+  =back
+  
+  If you would like to prevent their export, you may explicitly pass an
+  empty list to perl's C<use>, i.e. C<use Path::Class ()>.
+  
+  The following are exported only on demand.
+  
+  =over 4
+  
+  =item foreign_file
+  
+  A synonym for C<< Path::Class::File->new_foreign >>.
+  
+  =item foreign_dir
+  
+  A synonym for C<< Path::Class::Dir->new_foreign >>.
+  
+  =item tempdir
+  
+  Create a new Path::Class::Dir instance pointed to temporary directory.
+  
+    my $temp = Path::Class::tempdir(CLEANUP => 1);
+  
+  A synonym for C<< Path::Class::Dir->new(File::Temp::tempdir(@_)) >>.
+  
+  =back
+  
+  =head1 Notes on Cross-Platform Compatibility
+  
+  Although it is much easier to write cross-platform-friendly code with
+  this module than with C<File::Spec>, there are still some issues to be
+  aware of.
+  
+  =over 4
+  
+  =item *
+  
+  On some platforms, notably VMS and some older versions of DOS (I think),
+  all filenames must have an extension.  Thus if you create a file
+  called F<foo/bar> and then ask for a list of files in the directory
+  F<foo>, you may find a file called F<bar.> instead of the F<bar> you
+  were expecting.  Thus it might be a good idea to use an extension in
+  the first place.
+  
+  =back
+  
+  =head1 AUTHOR
+  
+  Ken Williams, KWILLIAMS@cpan.org
+  
+  =head1 COPYRIGHT
+  
+  Copyright (c) Ken Williams.  All rights reserved.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the same terms as Perl itself.
+  
+  
+  =head1 SEE ALSO
+  
+  L<Path::Class::Dir>, L<Path::Class::File>, L<File::Spec>
+  
+  =cut
+PATH_CLASS
+
+$fatpacked{"Path/Class/Dir.pm"} = <<'PATH_CLASS_DIR';
+  use strict;
+  
+  package Path::Class::Dir;
+  {
+    $Path::Class::Dir::VERSION = '0.32';
+  }
+  
+  use Path::Class::File;
+  use Carp();
+  use base qw(Path::Class::Entity);
+  
+  use IO::Dir ();
+  use File::Path ();
+  use File::Temp ();
+  use Scalar::Util ();
+  
+  # updir & curdir on the local machine, for screening them out in
+  # children().  Note that they don't respect 'foreign' semantics.
+  my $Updir  = __PACKAGE__->_spec->updir;
+  my $Curdir = __PACKAGE__->_spec->curdir;
+  
+  sub new {
+    my $self = shift->SUPER::new();
+  
+    # If the only arg is undef, it's probably a mistake.  Without this
+    # special case here, we'd return the root directory, which is a
+    # lousy thing to do to someone when they made a mistake.  Return
+    # undef instead.
+    return if @_==1 && !defined($_[0]);
+  
+    my $s = $self->_spec;
+    
+    my $first = (@_ == 0     ? $s->curdir :
+  	       $_[0] eq '' ? (shift, $s->rootdir) :
+  	       shift()
+  	      );
+    
+    $self->{dirs} = [];
+    if ( Scalar::Util::blessed($first) && $first->isa("Path::Class::Dir") ) {
+      $self->{volume} = $first->{volume};
+      push @{$self->{dirs}}, @{$first->{dirs}};
+    }
+    else {
+      ($self->{volume}, my $dirs) = $s->splitpath( $s->canonpath("$first") , 1);
+      push @{$self->{dirs}}, $dirs eq $s->rootdir ? "" : $s->splitdir($dirs);
+    }
+  
+    push @{$self->{dirs}}, map {
+      Scalar::Util::blessed($_) && $_->isa("Path::Class::Dir")
+        ? @{$_->{dirs}}
+        : $s->splitdir($_)
+    } @_;
+  
+  
+    return $self;
+  }
+  
+  sub file_class { "Path::Class::File" }
+  
+  sub is_dir { 1 }
+  
+  sub as_foreign {
+    my ($self, $type) = @_;
+  
+    my $foreign = do {
+      local $self->{file_spec_class} = $self->_spec_class($type);
+      $self->SUPER::new;
+    };
+    
+    # Clone internal structure
+    $foreign->{volume} = $self->{volume};
+    my ($u, $fu) = ($self->_spec->updir, $foreign->_spec->updir);
+    $foreign->{dirs} = [ map {$_ eq $u ? $fu : $_} @{$self->{dirs}}];
+    return $foreign;
+  }
+  
+  sub stringify {
+    my $self = shift;
+    my $s = $self->_spec;
+    return $s->catpath($self->{volume},
+  		     $s->catdir(@{$self->{dirs}}),
+  		     '');
+  }
+  
+  sub volume { shift()->{volume} }
+  
+  sub file {
+    local $Path::Class::Foreign = $_[0]->{file_spec_class} if $_[0]->{file_spec_class};
+    return $_[0]->file_class->new(@_);
+  }
+  
+  sub basename { shift()->{dirs}[-1] }
+  
+  sub dir_list {
+    my $self = shift;
+    my $d = $self->{dirs};
+    return @$d unless @_;
+    
+    my $offset = shift;
+    if ($offset < 0) { $offset = $#$d + $offset + 1 }
+    
+    return wantarray ? @$d[$offset .. $#$d] : $d->[$offset] unless @_;
+    
+    my $length = shift;
+    if ($length < 0) { $length = $#$d + $length + 1 - $offset }
+    return @$d[$offset .. $length + $offset - 1];
+  }
+  
+  sub components {
+    my $self = shift;
+    return $self->dir_list(@_);
+  }
+  
+  sub subdir {
+    my $self = shift;
+    return $self->new($self, @_);
+  }
+  
+  sub parent {
+    my $self = shift;
+    my $dirs = $self->{dirs};
+    my ($curdir, $updir) = ($self->_spec->curdir, $self->_spec->updir);
+  
+    if ($self->is_absolute) {
+      my $parent = $self->new($self);
+      pop @{$parent->{dirs}} if @$dirs > 1;
+      return $parent;
+  
+    } elsif ($self eq $curdir) {
+      return $self->new($updir);
+  
+    } elsif (!grep {$_ ne $updir} @$dirs) {  # All updirs
+      return $self->new($self, $updir); # Add one more
+  
+    } elsif (@$dirs == 1) {
+      return $self->new($curdir);
+  
+    } else {
+      my $parent = $self->new($self);
+      pop @{$parent->{dirs}};
+      return $parent;
+    }
+  }
+  
+  sub relative {
+    # File::Spec->abs2rel before version 3.13 returned the empty string
+    # when the two paths were equal - work around it here.
+    my $self = shift;
+    my $rel = $self->_spec->abs2rel($self->stringify, @_);
+    return $self->new( length $rel ? $rel : $self->_spec->curdir );
+  }
+  
+  sub open  { IO::Dir->new(@_) }
+  sub mkpath { File::Path::mkpath(shift()->stringify, @_) }
+  sub rmtree { File::Path::rmtree(shift()->stringify, @_) }
+  
+  sub remove {
+    rmdir( shift() );
+  }
+  
+  sub traverse {
+    my $self = shift;
+    my ($callback, @args) = @_;
+    my @children = $self->children;
+    return $self->$callback(
+      sub {
+        my @inner_args = @_;
+        return map { $_->traverse($callback, @inner_args) } @children;
+      },
+      @args
+    );
+  }
+  
+  sub traverse_if {
+    my $self = shift;
+    my ($callback, $condition, @args) = @_;
+    my @children = grep { $condition->($_) } $self->children;
+    return $self->$callback(
+      sub {
+        my @inner_args = @_;
+        return map { $_->traverse_if($callback, $condition, @inner_args) } @children;
+      },
+      @args
+    );
+  }
+  
+  sub recurse {
+    my $self = shift;
+    my %opts = (preorder => 1, depthfirst => 0, @_);
+    
+    my $callback = $opts{callback}
+      or Carp::croak( "Must provide a 'callback' parameter to recurse()" );
+    
+    my @queue = ($self);
+    
+    my $visit_entry;
+    my $visit_dir = 
+      $opts{depthfirst} && $opts{preorder}
+      ? sub {
+        my $dir = shift;
+        my $ret = $callback->($dir);
+        unless( ($ret||'') eq $self->PRUNE ) {
+            unshift @queue, $dir->children;
+        }
+      }
+      : $opts{preorder}
+      ? sub {
+        my $dir = shift;
+        my $ret = $callback->($dir);
+        unless( ($ret||'') eq $self->PRUNE ) {
+            push @queue, $dir->children;
+        }
+      }
+      : sub {
+        my $dir = shift;
+        $visit_entry->($_) foreach $dir->children;
+        $callback->($dir);
+      };
+    
+    $visit_entry = sub {
+      my $entry = shift;
+      if ($entry->is_dir) { $visit_dir->($entry) } # Will call $callback
+      else { $callback->($entry) }
+    };
+    
+    while (@queue) {
+      $visit_entry->( shift @queue );
+    }
+  }
+  
+  sub children {
+    my ($self, %opts) = @_;
+    
+    my $dh = $self->open or Carp::croak( "Can't open directory $self: $!" );
+    
+    my @out;
+    while (defined(my $entry = $dh->read)) {
+      next if !$opts{all} && $self->_is_local_dot_dir($entry);
+      next if ($opts{no_hidden} && $entry =~ /^\./);
+      push @out, $self->file($entry);
+      $out[-1] = $self->subdir($entry) if -d $out[-1];
+    }
+    return @out;
+  }
+  
+  sub _is_local_dot_dir {
+    my $self = shift;
+    my $dir  = shift;
+  
+    return ($dir eq $Updir or $dir eq $Curdir);
+  }
+  
+  sub next {
+    my $self = shift;
+    unless ($self->{dh}) {
+      $self->{dh} = $self->open or Carp::croak( "Can't open directory $self: $!" );
+    }
+    
+    my $next = $self->{dh}->read;
+    unless (defined $next) {
+      delete $self->{dh};
+      ## no critic
+      return undef;
+    }
+    
+    # Figure out whether it's a file or directory
+    my $file = $self->file($next);
+    $file = $self->subdir($next) if -d $file;
+    return $file;
+  }
+  
+  sub subsumes {
+    my ($self, $other) = @_;
+    die "No second entity given to subsumes()" unless $other;
+    
+    $other = $self->new($other) unless UNIVERSAL::isa($other, __PACKAGE__);
+    $other = $other->dir unless $other->is_dir;
+    
+    if ($self->is_absolute) {
+      $other = $other->absolute;
+    } elsif ($other->is_absolute) {
+      $self = $self->absolute;
+    }
+  
+    $self = $self->cleanup;
+    $other = $other->cleanup;
+  
+    if ($self->volume) {
+      return 0 unless $other->volume eq $self->volume;
+    }
+  
+    # The root dir subsumes everything (but ignore the volume because
+    # we've already checked that)
+    return 1 if "@{$self->{dirs}}" eq "@{$self->new('')->{dirs}}";
+    
+    my $i = 0;
+    while ($i <= $#{ $self->{dirs} }) {
+      return 0 if $i > $#{ $other->{dirs} };
+      return 0 if $self->{dirs}[$i] ne $other->{dirs}[$i];
+      $i++;
+    }
+    return 1;
+  }
+  
+  sub contains {
+    my ($self, $other) = @_;
+    return !!(-d $self and (-e $other or -l $other) and $self->subsumes($other));
+  }
+  
+  sub tempfile {
+    my $self = shift;
+    return File::Temp::tempfile(@_, DIR => $self->stringify);
+  }
+  
+  1;
+  __END__
+  
+  =head1 NAME
+  
+  Path::Class::Dir - Objects representing directories
+  
+  =head1 VERSION
+  
+  version 0.32
+  
+  =head1 SYNOPSIS
+  
+    use Path::Class qw(dir);  # Export a short constructor
+    
+    my $dir = dir('foo', 'bar');       # Path::Class::Dir object
+    my $dir = Path::Class::Dir->new('foo', 'bar');  # Same thing
+    
+    # Stringifies to 'foo/bar' on Unix, 'foo\bar' on Windows, etc.
+    print "dir: $dir\n";
+    
+    if ($dir->is_absolute) { ... }
+    if ($dir->is_relative) { ... }
+    
+    my $v = $dir->volume; # Could be 'C:' on Windows, empty string
+                          # on Unix, 'Macintosh HD:' on Mac OS
+    
+    $dir->cleanup; # Perform logical cleanup of pathname
+    $dir->resolve; # Perform physical cleanup of pathname
+    
+    my $file = $dir->file('file.txt'); # A file in this directory
+    my $subdir = $dir->subdir('george'); # A subdirectory
+    my $parent = $dir->parent; # The parent directory, 'foo'
+    
+    my $abs = $dir->absolute; # Transform to absolute path
+    my $rel = $abs->relative; # Transform to relative path
+    my $rel = $abs->relative('/foo'); # Relative to /foo
+    
+    print $dir->as_foreign('Mac');   # :foo:bar:
+    print $dir->as_foreign('Win32'); #  foo\bar
+  
+    # Iterate with IO::Dir methods:
+    my $handle = $dir->open;
+    while (my $file = $handle->read) {
+      $file = $dir->file($file);  # Turn into Path::Class::File object
+      ...
+    }
+    
+    # Iterate with Path::Class methods:
+    while (my $file = $dir->next) {
+      # $file is a Path::Class::File or Path::Class::Dir object
+      ...
+    }
+  
+  
+  =head1 DESCRIPTION
+  
+  The C<Path::Class::Dir> class contains functionality for manipulating
+  directory names in a cross-platform way.
+  
+  =head1 METHODS
+  
+  =over 4
+  
+  =item $dir = Path::Class::Dir->new( <dir1>, <dir2>, ... )
+  
+  =item $dir = dir( <dir1>, <dir2>, ... )
+  
+  Creates a new C<Path::Class::Dir> object and returns it.  The
+  arguments specify names of directories which will be joined to create
+  a single directory object.  A volume may also be specified as the
+  first argument, or as part of the first argument.  You can use
+  platform-neutral syntax:
+  
+    my $dir = dir( 'foo', 'bar', 'baz' );
+  
+  or platform-native syntax:
+  
+    my $dir = dir( 'foo/bar/baz' );
+  
+  or a mixture of the two:
+  
+    my $dir = dir( 'foo/bar', 'baz' );
+  
+  All three of the above examples create relative paths.  To create an
+  absolute path, either use the platform native syntax for doing so:
+  
+    my $dir = dir( '/var/tmp' );
+  
+  or use an empty string as the first argument:
+  
+    my $dir = dir( '', 'var', 'tmp' );
+  
+  If the second form seems awkward, that's somewhat intentional - paths
+  like C</var/tmp> or C<\Windows> aren't cross-platform concepts in the
+  first place (many non-Unix platforms don't have a notion of a "root
+  directory"), so they probably shouldn't appear in your code if you're
+  trying to be cross-platform.  The first form is perfectly natural,
+  because paths like this may come from config files, user input, or
+  whatever.
+  
+  As a special case, since it doesn't otherwise mean anything useful and
+  it's convenient to define this way, C<< Path::Class::Dir->new() >> (or
+  C<dir()>) refers to the current directory (C<< File::Spec->curdir >>).
+  To get the current directory as an absolute path, do C<<
+  dir()->absolute >>.
+  
+  Finally, as another special case C<dir(undef)> will return undef,
+  since that's usually an accident on the part of the caller, and
+  returning the root directory would be a nasty surprise just asking for
+  trouble a few lines later.
+  
+  =item $dir->stringify
+  
+  This method is called internally when a C<Path::Class::Dir> object is
+  used in a string context, so the following are equivalent:
+  
+    $string = $dir->stringify;
+    $string = "$dir";
+  
+  =item $dir->volume
+  
+  Returns the volume (e.g. C<C:> on Windows, C<Macintosh HD:> on Mac OS,
+  etc.) of the directory object, if any.  Otherwise, returns the empty
+  string.
+  
+  =item $dir->basename
+  
+  Returns the last directory name of the path as a string.
+  
+  =item $dir->is_dir
+  
+  Returns a boolean value indicating whether this object represents a
+  directory.  Not surprisingly, L<Path::Class::File> objects always
+  return false, and C<Path::Class::Dir> objects always return true.
+  
+  =item $dir->is_absolute
+  
+  Returns true or false depending on whether the directory refers to an
+  absolute path specifier (like C</usr/local> or C<\Windows>).
+  
+  =item $dir->is_relative
+  
+  Returns true or false depending on whether the directory refers to a
+  relative path specifier (like C<lib/foo> or C<./dir>).
+  
+  =item $dir->cleanup
+  
+  Performs a logical cleanup of the file path.  For instance:
+  
+    my $dir = dir('/foo//baz/./foo')->cleanup;
+    # $dir now represents '/foo/baz/foo';
+  
+  =item $dir->resolve
+  
+  Performs a physical cleanup of the file path.  For instance:
+  
+    my $dir = dir('/foo//baz/../foo')->resolve;
+    # $dir now represents '/foo/foo', assuming no symlinks
+  
+  This actually consults the filesystem to verify the validity of the
+  path.
+  
+  =item $file = $dir->file( <dir1>, <dir2>, ..., <file> )
+  
+  Returns a L<Path::Class::File> object representing an entry in C<$dir>
+  or one of its subdirectories.  Internally, this just calls C<<
+  Path::Class::File->new( @_ ) >>.
+  
+  =item $subdir = $dir->subdir( <dir1>, <dir2>, ... )
+  
+  Returns a new C<Path::Class::Dir> object representing a subdirectory
+  of C<$dir>.
+  
+  =item $parent = $dir->parent
+  
+  Returns the parent directory of C<$dir>.  Note that this is the
+  I<logical> parent, not necessarily the physical parent.  It really
+  means we just chop off entries from the end of the directory list
+  until we cain't chop no more.  If the directory is relative, we start
+  using the relative forms of parent directories.
+  
+  The following code demonstrates the behavior on absolute and relative
+  directories:
+  
+    $dir = dir('/foo/bar');
+    for (1..6) {
+      print "Absolute: $dir\n";
+      $dir = $dir->parent;
+    }
+    
+    $dir = dir('foo/bar');
+    for (1..6) {
+      print "Relative: $dir\n";
+      $dir = $dir->parent;
+    }
+    
+    ########### Output on Unix ################
+    Absolute: /foo/bar
+    Absolute: /foo
+    Absolute: /
+    Absolute: /
+    Absolute: /
+    Absolute: /
+    Relative: foo/bar
+    Relative: foo
+    Relative: .
+    Relative: ..
+    Relative: ../..
+    Relative: ../../..
+  
+  =item @list = $dir->children
+  
+  Returns a list of L<Path::Class::File> and/or C<Path::Class::Dir>
+  objects listed in this directory, or in scalar context the number of
+  such objects.  Obviously, it is necessary for C<$dir> to
+  exist and be readable in order to find its children.
+  
+  Note that the children are returned as subdirectories of C<$dir>,
+  i.e. the children of F<foo> will be F<foo/bar> and F<foo/baz>, not
+  F<bar> and F<baz>.
+  
+  Ordinarily C<children()> will not include the I<self> and I<parent>
+  entries C<.> and C<..> (or their equivalents on non-Unix systems),
+  because that's like I'm-my-own-grandpa business.  If you do want all
+  directory entries including these special ones, pass a true value for
+  the C<all> parameter:
+  
+    @c = $dir->children(); # Just the children
+    @c = $dir->children(all => 1); # All entries
+  
+  In addition, there's a C<no_hidden> parameter that will exclude all
+  normally "hidden" entries - on Unix this means excluding all entries
+  that begin with a dot (C<.>):
+  
+    @c = $dir->children(no_hidden => 1); # Just normally-visible entries
+  
+  
+  =item $abs = $dir->absolute
+  
+  Returns a C<Path::Class::Dir> object representing C<$dir> as an
+  absolute path.  An optional argument, given as either a string or a
+  C<Path::Class::Dir> object, specifies the directory to use as the base
+  of relativity - otherwise the current working directory will be used.
+  
+  =item $rel = $dir->relative
+  
+  Returns a C<Path::Class::Dir> object representing C<$dir> as a
+  relative path.  An optional argument, given as either a string or a
+  C<Path::Class::Dir> object, specifies the directory to use as the base
+  of relativity - otherwise the current working directory will be used.
+  
+  =item $boolean = $dir->subsumes($other)
+  
+  Returns true if this directory spec subsumes the other spec, and false
+  otherwise.  Think of "subsumes" as "contains", but we only look at the
+  I<specs>, not whether C<$dir> actually contains C<$other> on the
+  filesystem.
+  
+  The C<$other> argument may be a C<Path::Class::Dir> object, a
+  L<Path::Class::File> object, or a string.  In the latter case, we
+  assume it's a directory.
+  
+    # Examples:
+    dir('foo/bar' )->subsumes(dir('foo/bar/baz'))  # True
+    dir('/foo/bar')->subsumes(dir('/foo/bar/baz')) # True
+    dir('foo/bar' )->subsumes(dir('bar/baz'))      # False
+    dir('/foo/bar')->subsumes(dir('foo/bar'))      # False
+  
+  
+  =item $boolean = $dir->contains($other)
+  
+  Returns true if this directory actually contains C<$other> on the
+  filesystem.  C<$other> doesn't have to be a direct child of C<$dir>,
+  it just has to be subsumed.
+  
+  =item $foreign = $dir->as_foreign($type)
+  
+  Returns a C<Path::Class::Dir> object representing C<$dir> as it would
+  be specified on a system of type C<$type>.  Known types include
+  C<Unix>, C<Win32>, C<Mac>, C<VMS>, and C<OS2>, i.e. anything for which
+  there is a subclass of C<File::Spec>.
+  
+  Any generated objects (subdirectories, files, parents, etc.) will also
+  retain this type.
+  
+  =item $foreign = Path::Class::Dir->new_foreign($type, @args)
+  
+  Returns a C<Path::Class::Dir> object representing C<$dir> as it would
+  be specified on a system of type C<$type>.  Known types include
+  C<Unix>, C<Win32>, C<Mac>, C<VMS>, and C<OS2>, i.e. anything for which
+  there is a subclass of C<File::Spec>.
+  
+  The arguments in C<@args> are the same as they would be specified in
+  C<new()>.
+  
+  =item @list = $dir->dir_list([OFFSET, [LENGTH]])
+  
+  Returns the list of strings internally representing this directory
+  structure.  Each successive member of the list is understood to be an
+  entry in its predecessor's directory list.  By contract, C<<
+  Path::Class->new( $dir->dir_list ) >> should be equivalent to C<$dir>.
+  
+  The semantics of this method are similar to Perl's C<splice> or
+  C<substr> functions; they return C<LENGTH> elements starting at
+  C<OFFSET>.  If C<LENGTH> is omitted, returns all the elements starting
+  at C<OFFSET> up to the end of the list.  If C<LENGTH> is negative,
+  returns the elements from C<OFFSET> onward except for C<-LENGTH>
+  elements at the end.  If C<OFFSET> is negative, it counts backward
+  C<OFFSET> elements from the end of the list.  If C<OFFSET> and
+  C<LENGTH> are both omitted, the entire list is returned.
+  
+  In a scalar context, C<dir_list()> with no arguments returns the
+  number of entries in the directory list; C<dir_list(OFFSET)> returns
+  the single element at that offset; C<dir_list(OFFSET, LENGTH)> returns
+  the final element that would have been returned in a list context.
+  
+  =item $dir->components
+  
+  Identical to c<dir_list()>.  It exists because there's an analogous
+  method C<dir_list()> in the C<Path::Class::File> class that also
+  returns the basename string, so this method lets someone call
+  C<components()> without caring whether the object is a file or a
+  directory.
+  
+  =item $fh = $dir->open()
+  
+  Passes C<$dir> to C<< IO::Dir->open >> and returns the result as an
+  L<IO::Dir> object.  If the opening fails, C<undef> is returned and
+  C<$!> is set.
+  
+  =item $dir->mkpath($verbose, $mode)
+  
+  Passes all arguments, including C<$dir>, to C<< File::Path::mkpath()
+  >> and returns the result (a list of all directories created).
+  
+  =item $dir->rmtree($verbose, $cautious)
+  
+  Passes all arguments, including C<$dir>, to C<< File::Path::rmtree()
+  >> and returns the result (the number of files successfully deleted).
+  
+  =item $dir->remove()
+  
+  Removes the directory, which must be empty.  Returns a boolean value
+  indicating whether or not the directory was successfully removed.
+  This method is mainly provided for consistency with
+  C<Path::Class::File>'s C<remove()> method.
+  
+  =item $dir->tempfile(...)
+  
+  An interface to L<File::Temp>'s C<tempfile()> function.  Just like
+  that function, if you call this in a scalar context, the return value
+  is the filehandle and the file is C<unlink>ed as soon as possible
+  (which is immediately on Unix-like platforms).  If called in a list
+  context, the return values are the filehandle and the filename.
+  
+  The given directory is passed as the C<DIR> parameter.
+  
+  Here's an example of pretty good usage which doesn't allow race
+  conditions, won't leave yucky tempfiles around on your filesystem,
+  etc.:
+  
+    my $fh = $dir->tempfile;
+    print $fh "Here's some data...\n";
+    seek($fh, 0, 0);
+    while (<$fh>) { do something... }
+  
+  Or in combination with a C<fork>:
+  
+    my $fh = $dir->tempfile;
+    print $fh "Here's some more data...\n";
+    seek($fh, 0, 0);
+    if ($pid=fork()) {
+      wait;
+    } else {
+      something($_) while <$fh>;
+    }
+  
+  
+  =item $dir_or_file = $dir->next()
+  
+  A convenient way to iterate through directory contents.  The first
+  time C<next()> is called, it will C<open()> the directory and read the
+  first item from it, returning the result as a C<Path::Class::Dir> or
+  L<Path::Class::File> object (depending, of course, on its actual
+  type).  Each subsequent call to C<next()> will simply iterate over the
+  directory's contents, until there are no more items in the directory,
+  and then the undefined value is returned.  For example, to iterate
+  over all the regular files in a directory:
+  
+    while (my $file = $dir->next) {
+      next unless -f $file;
+      my $fh = $file->open('r') or die "Can't read $file: $!";
+      ...
+    }
+  
+  If an error occurs when opening the directory (for instance, it
+  doesn't exist or isn't readable), C<next()> will throw an exception
+  with the value of C<$!>.
+  
+  =item $dir->traverse( sub { ... }, @args )
+  
+  Calls the given callback for the root, passing it a continuation
+  function which, when called, will call this recursively on each of its
+  children. The callback function should be of the form:
+  
+    sub {
+      my ($child, $cont, @args) = @_;
+      # ...
+    }
+  
+  For instance, to calculate the number of files in a directory, you
+  can do this:
+  
+    my $nfiles = $dir->traverse(sub {
+      my ($child, $cont) = @_;
+      return sum($cont->(), ($child->is_dir ? 0 : 1));
+    });
+  
+  or to calculate the maximum depth of a directory:
+  
+    my $depth = $dir->traverse(sub {
+      my ($child, $cont, $depth) = @_;
+      return max($cont->($depth + 1), $depth);
+    }, 0);
+  
+  You can also choose not to call the callback in certain situations:
+  
+    $dir->traverse(sub {
+      my ($child, $cont) = @_;
+      return if -l $child; # don't follow symlinks
+      # do something with $child
+      return $cont->();
+    });
+  
+  =item $dir->traverse_if( sub { ... }, sub { ... }, @args )
+  
+  traverse with additional "should I visit this child" callback.
+  Particularly useful in case examined tree contains inaccessible
+  directories.
+  
+  Canonical example:
+  
+    $dir->traverse_if(
+      sub {
+         my ($child, $cont) = @_;
+         # do something with $child
+         return $cont->();
+      }, 
+      sub {
+         my ($child) = @_;
+         # Process only readable items
+         return -r $child;
+      });
+  
+  Second callback gets single parameter: child. Only children for
+  which it returns true will be processed by the first callback.
+  
+  Remaining parameters are interpreted as in traverse, in particular
+  C<traverse_if(callback, sub { 1 }, @args> is equivalent to
+  C<traverse(callback, @args)>.
+  
+  =item $dir->recurse( callback => sub {...} )
+  
+  Iterates through this directory and all of its children, and all of
+  its children's children, etc., calling the C<callback> subroutine for
+  each entry.  This is a lot like what the L<File::Find> module does,
+  and of course C<File::Find> will work fine on L<Path::Class> objects,
+  but the advantage of the C<recurse()> method is that it will also feed
+  your callback routine C<Path::Class> objects rather than just pathname
+  strings.
+  
+  The C<recurse()> method requires a C<callback> parameter specifying
+  the subroutine to invoke for each entry.  It will be passed the
+  C<Path::Class> object as its first argument.
+  
+  C<recurse()> also accepts two boolean parameters, C<depthfirst> and
+  C<preorder> that control the order of recursion.  The default is a
+  preorder, breadth-first search, i.e. C<< depthfirst => 0, preorder => 1 >>.
+  At the time of this writing, all combinations of these two parameters
+  are supported I<except> C<< depthfirst => 0, preorder => 0 >>.
+  
+  C<callback> is normally not required to return any value. If it
+  returns special constant C<Path::Class::Entity::PRUNE()> (more easily
+  available as C<$item->PRUNE>),  no children of analyzed
+  item will be analyzed (mostly as if you set C<$File::Find::prune=1>). Of course
+  pruning is available only in C<preorder>, in postorder return value
+  has no effect.
+  
+  =item $st = $file->stat()
+  
+  Invokes C<< File::stat::stat() >> on this directory and returns a
+  C<File::stat> object representing the result.
+  
+  =item $st = $file->lstat()
+  
+  Same as C<stat()>, but if C<$file> is a symbolic link, C<lstat()>
+  stats the link instead of the directory the link points to.
+  
+  =item $class = $file->file_class()
+  
+  Returns the class which should be used to create file objects.
+  
+  Generally overridden whenever this class is subclassed.
+  
+  =back
+  
+  =head1 AUTHOR
+  
+  Ken Williams, kwilliams@cpan.org
+  
+  =head1 SEE ALSO
+  
+  L<Path::Class>, L<Path::Class::File>, L<File::Spec>
+  
+  =cut
+PATH_CLASS_DIR
+
+$fatpacked{"Path/Class/Entity.pm"} = <<'PATH_CLASS_ENTITY';
+  use strict;
+  
+  package Path::Class::Entity;
+  {
+    $Path::Class::Entity::VERSION = '0.32';
+  }
+  
+  use File::Spec 3.26;
+  use File::stat ();
+  use Cwd;
+  use Carp();
+  
+  use overload
+    (
+     q[""] => 'stringify',
+     'bool' => 'boolify',
+     fallback => 1,
+    );
+  
+  sub new {
+    my $from = shift;
+    my ($class, $fs_class) = (ref($from)
+  			    ? (ref $from, $from->{file_spec_class})
+  			    : ($from, $Path::Class::Foreign));
+    return bless {file_spec_class => $fs_class}, $class;
+  }
+  
+  sub is_dir { 0 }
+  
+  sub _spec_class {
+    my ($class, $type) = @_;
+  
+    die "Invalid system type '$type'" unless ($type) = $type =~ /^(\w+)$/;  # Untaint
+    my $spec = "File::Spec::$type";
+    ## no critic
+    eval "require $spec; 1" or die $@;
+    return $spec;
+  }
+  
+  sub new_foreign {
+    my ($class, $type) = (shift, shift);
+    local $Path::Class::Foreign = $class->_spec_class($type);
+    return $class->new(@_);
+  }
+  
+  sub _spec { (ref($_[0]) && $_[0]->{file_spec_class}) || 'File::Spec' }
+  
+  sub boolify { 1 }
+    
+  sub is_absolute { 
+    # 5.6.0 has a bug with regexes and stringification that's ticked by
+    # file_name_is_absolute().  Help it along with an explicit stringify().
+    $_[0]->_spec->file_name_is_absolute($_[0]->stringify) 
+  }
+  
+  sub is_relative { ! $_[0]->is_absolute }
+  
+  sub cleanup {
+    my $self = shift;
+    my $cleaned = $self->new( $self->_spec->canonpath("$self") );
+    %$self = %$cleaned;
+    return $self;
+  }
+  
+  sub resolve {
+    my $self = shift;
+    Carp::croak($! . " $self") unless -e $self;  # No such file or directory
+    my $cleaned = $self->new( scalar Cwd::realpath($self->stringify) );
+  
+    # realpath() always returns absolute path, kind of annoying
+    $cleaned = $cleaned->relative if $self->is_relative;
+  
+    %$self = %$cleaned;
+    return $self;
+  }
+  
+  sub absolute {
+    my $self = shift;
+    return $self if $self->is_absolute;
+    return $self->new($self->_spec->rel2abs($self->stringify, @_));
+  }
+  
+  sub relative {
+    my $self = shift;
+    return $self->new($self->_spec->abs2rel($self->stringify, @_));
+  }
+  
+  sub stat  { File::stat::stat("$_[0]") }
+  sub lstat { File::stat::lstat("$_[0]") }
+  
+  sub PRUNE { return \&PRUNE; }
+  
+  1;
+  __END__
+  
+  =head1 NAME
+  
+  Path::Class::Entity - Base class for files and directories
+  
+  =head1 VERSION
+  
+  version 0.32
+  
+  =head1 DESCRIPTION
+  
+  This class is the base class for C<Path::Class::File> and
+  C<Path::Class::Dir>, it is not used directly by callers.
+  
+  =head1 AUTHOR
+  
+  Ken Williams, kwilliams@cpan.org
+  
+  =head1 SEE ALSO
+  
+  Path::Class
+  
+  =cut
+PATH_CLASS_ENTITY
+
+$fatpacked{"Path/Class/File.pm"} = <<'PATH_CLASS_FILE';
+  use strict;
+  
+  package Path::Class::File;
+  {
+    $Path::Class::File::VERSION = '0.32';
+  }
+  
+  use Path::Class::Dir;
+  use base qw(Path::Class::Entity);
+  use Carp;
+  
+  use IO::File ();
+  
+  sub new {
+    my $self = shift->SUPER::new;
+    my $file = pop();
+    my @dirs = @_;
+  
+    my ($volume, $dirs, $base) = $self->_spec->splitpath($file);
+    
+    if (length $dirs) {
+      push @dirs, $self->_spec->catpath($volume, $dirs, '');
+    }
+    
+    $self->{dir}  = @dirs ? $self->dir_class->new(@dirs) : undef;
+    $self->{file} = $base;
+    
+    return $self;
+  }
+  
+  sub dir_class { "Path::Class::Dir" }
+  
+  sub as_foreign {
+    my ($self, $type) = @_;
+    local $Path::Class::Foreign = $self->_spec_class($type);
+    my $foreign = ref($self)->SUPER::new;
+    $foreign->{dir} = $self->{dir}->as_foreign($type) if defined $self->{dir};
+    $foreign->{file} = $self->{file};
+    return $foreign;
+  }
+  
+  sub stringify {
+    my $self = shift;
+    return $self->{file} unless defined $self->{dir};
+    return $self->_spec->catfile($self->{dir}->stringify, $self->{file});
+  }
+  
+  sub dir {
+    my $self = shift;
+    return $self->{dir} if defined $self->{dir};
+    return $self->dir_class->new($self->_spec->curdir);
+  }
+  BEGIN { *parent = \&dir; }
+  
+  sub volume {
+    my $self = shift;
+    return '' unless defined $self->{dir};
+    return $self->{dir}->volume;
+  }
+  
+  sub components {
+    my $self = shift;
+    die "Arguments are not currently supported by File->components()" if @_;
+    return ($self->dir->components, $self->basename);
+  }
+  
+  sub basename { shift->{file} }
+  sub open  { IO::File->new(@_) }
+  
+  sub openr { $_[0]->open('r') or croak "Can't read $_[0]: $!"  }
+  sub openw { $_[0]->open('w') or croak "Can't write to $_[0]: $!" }
+  sub opena { $_[0]->open('a') or croak "Can't append to $_[0]: $!" }
+  
+  sub touch {
+    my $self = shift;
+    if (-e $self) {
+      my $now = time();
+      utime $now, $now, $self;
+    } else {
+      $self->openw;
+    }
+  }
+  
+  sub slurp {
+    my ($self, %args) = @_;
+    my $iomode = $args{iomode} || 'r';
+    my $fh = $self->open($iomode) or croak "Can't read $self: $!";
+  
+    if (wantarray) {
+      my @data = <$fh>;
+      chomp @data if $args{chomped} or $args{chomp};
+  
+      if ( my $splitter = $args{split} ) {
+        @data = map { [ split $splitter, $_ ] } @data;
+      }
+  
+      return @data;
+    }
+  
+  
+    croak "'split' argument can only be used in list context"
+      if $args{split};
+  
+  
+    if ($args{chomped} or $args{chomp}) {
+      chomp( my @data = <$fh> );
+      return join '', @data;
+    }
+  
+  
+    local $/;
+    return <$fh>;
+  }
+  
+  sub spew {
+      my $self = shift;
+      my %args = splice( @_, 0, @_-1 );
+  
+      my $iomode = $args{iomode} || 'w';
+      my $fh = $self->open( $iomode ) or croak "Can't write to $self: $!";
+  
+      if (ref($_[0]) eq 'ARRAY') {
+          # Use old-school for loop to avoid copying.
+          for (my $i = 0; $i < @{ $_[0] }; $i++) {
+              print $fh $_[0]->[$i];
+          }
+      }
+      else {
+          print $fh $_[0];
+      }
+  
+      return;
+  }
+  
+  sub remove {
+    my $file = shift->stringify;
+    return unlink $file unless -e $file; # Sets $! correctly
+    1 while unlink $file;
+    return not -e $file;
+  }
+  
+  sub traverse {
+    my $self = shift;
+    my ($callback, @args) = @_;
+    return $self->$callback(sub { () }, @args);
+  }
+  
+  sub traverse_if {
+    my $self = shift;
+    my ($callback, $condition, @args) = @_;
+    return $self->$callback(sub { () }, @args);
+  }
+  
+  1;
+  __END__
+  
+  =head1 NAME
+  
+  Path::Class::File - Objects representing files
+  
+  =head1 VERSION
+  
+  version 0.32
+  
+  =head1 SYNOPSIS
+  
+    use Path::Class qw(file);  # Export a short constructor
+    
+    my $file = file('foo', 'bar.txt');  # Path::Class::File object
+    my $file = Path::Class::File->new('foo', 'bar.txt'); # Same thing
+    
+    # Stringifies to 'foo/bar.txt' on Unix, 'foo\bar.txt' on Windows, etc.
+    print "file: $file\n";
+    
+    if ($file->is_absolute) { ... }
+    if ($file->is_relative) { ... }
+    
+    my $v = $file->volume; # Could be 'C:' on Windows, empty string
+                           # on Unix, 'Macintosh HD:' on Mac OS
+    
+    $file->cleanup; # Perform logical cleanup of pathname
+    $file->resolve; # Perform physical cleanup of pathname
+    
+    my $dir = $file->dir;  # A Path::Class::Dir object
+    
+    my $abs = $file->absolute; # Transform to absolute path
+    my $rel = $file->relative; # Transform to relative path
+  
+  =head1 DESCRIPTION
+  
+  The C<Path::Class::File> class contains functionality for manipulating
+  file names in a cross-platform way.
+  
+  =head1 METHODS
+  
+  =over 4
+  
+  =item $file = Path::Class::File->new( <dir1>, <dir2>, ..., <file> )
+  
+  =item $file = file( <dir1>, <dir2>, ..., <file> )
+  
+  Creates a new C<Path::Class::File> object and returns it.  The
+  arguments specify the path to the file.  Any volume may also be
+  specified as the first argument, or as part of the first argument.
+  You can use platform-neutral syntax:
+  
+    my $file = file( 'foo', 'bar', 'baz.txt' );
+  
+  or platform-native syntax:
+  
+    my $file = file( 'foo/bar/baz.txt' );
+  
+  or a mixture of the two:
+  
+    my $file = file( 'foo/bar', 'baz.txt' );
+  
+  All three of the above examples create relative paths.  To create an
+  absolute path, either use the platform native syntax for doing so:
+  
+    my $file = file( '/var/tmp/foo.txt' );
+  
+  or use an empty string as the first argument:
+  
+    my $file = file( '', 'var', 'tmp', 'foo.txt' );
+  
+  If the second form seems awkward, that's somewhat intentional - paths
+  like C</var/tmp> or C<\Windows> aren't cross-platform concepts in the
+  first place, so they probably shouldn't appear in your code if you're
+  trying to be cross-platform.  The first form is perfectly fine,
+  because paths like this may come from config files, user input, or
+  whatever.
+  
+  =item $file->stringify
+  
+  This method is called internally when a C<Path::Class::File> object is
+  used in a string context, so the following are equivalent:
+  
+    $string = $file->stringify;
+    $string = "$file";
+  
+  =item $file->volume
+  
+  Returns the volume (e.g. C<C:> on Windows, C<Macintosh HD:> on Mac OS,
+  etc.) of the object, if any.  Otherwise, returns the empty string.
+  
+  =item $file->basename
+  
+  Returns the name of the file as a string, without the directory
+  portion (if any).
+  
+  =item $file->components
+  
+  Returns a list of the directory components of this file, followed by
+  the basename.
+  
+  Note: unlike C<< $dir->components >>, this method currently does not
+  accept any arguments to select which elements of the list will be
+  returned.  It may do so in the future.  Currently it throws an
+  exception if such arguments are present.
+  
+  
+  =item $file->is_dir
+  
+  Returns a boolean value indicating whether this object represents a
+  directory.  Not surprisingly, C<Path::Class::File> objects always
+  return false, and L<Path::Class::Dir> objects always return true.
+  
+  =item $file->is_absolute
+  
+  Returns true or false depending on whether the file refers to an
+  absolute path specifier (like C</usr/local/foo.txt> or C<\Windows\Foo.txt>).
+  
+  =item $file->is_relative
+  
+  Returns true or false depending on whether the file refers to a
+  relative path specifier (like C<lib/foo.txt> or C<.\Foo.txt>).
+  
+  =item $file->cleanup
+  
+  Performs a logical cleanup of the file path.  For instance:
+  
+    my $file = file('/foo//baz/./foo.txt')->cleanup;
+    # $file now represents '/foo/baz/foo.txt';
+  
+  =item $dir->resolve
+  
+  Performs a physical cleanup of the file path.  For instance:
+  
+    my $file = file('/foo/baz/../foo.txt')->resolve;
+    # $file now represents '/foo/foo.txt', assuming no symlinks
+  
+  This actually consults the filesystem to verify the validity of the
+  path.
+  
+  =item $dir = $file->dir
+  
+  Returns a C<Path::Class::Dir> object representing the directory
+  containing this file.
+  
+  =item $dir = $file->parent
+  
+  A synonym for the C<dir()> method.
+  
+  =item $abs = $file->absolute
+  
+  Returns a C<Path::Class::File> object representing C<$file> as an
+  absolute path.  An optional argument, given as either a string or a
+  L<Path::Class::Dir> object, specifies the directory to use as the base
+  of relativity - otherwise the current working directory will be used.
+  
+  =item $rel = $file->relative
+  
+  Returns a C<Path::Class::File> object representing C<$file> as a
+  relative path.  An optional argument, given as either a string or a
+  C<Path::Class::Dir> object, specifies the directory to use as the base
+  of relativity - otherwise the current working directory will be used.
+  
+  =item $foreign = $file->as_foreign($type)
+  
+  Returns a C<Path::Class::File> object representing C<$file> as it would
+  be specified on a system of type C<$type>.  Known types include
+  C<Unix>, C<Win32>, C<Mac>, C<VMS>, and C<OS2>, i.e. anything for which
+  there is a subclass of C<File::Spec>.
+  
+  Any generated objects (subdirectories, files, parents, etc.) will also
+  retain this type.
+  
+  =item $foreign = Path::Class::File->new_foreign($type, @args)
+  
+  Returns a C<Path::Class::File> object representing a file as it would
+  be specified on a system of type C<$type>.  Known types include
+  C<Unix>, C<Win32>, C<Mac>, C<VMS>, and C<OS2>, i.e. anything for which
+  there is a subclass of C<File::Spec>.
+  
+  The arguments in C<@args> are the same as they would be specified in
+  C<new()>.
+  
+  =item $fh = $file->open($mode, $permissions)
+  
+  Passes the given arguments, including C<$file>, to C<< IO::File->new >>
+  (which in turn calls C<< IO::File->open >> and returns the result
+  as an L<IO::File> object.  If the opening
+  fails, C<undef> is returned and C<$!> is set.
+  
+  =item $fh = $file->openr()
+  
+  A shortcut for
+  
+   $fh = $file->open('r') or croak "Can't read $file: $!";
+  
+  =item $fh = $file->openw()
+  
+  A shortcut for
+  
+   $fh = $file->open('w') or croak "Can't write to $file: $!";
+  
+  =item $fh = $file->opena()
+  
+  A shortcut for
+  
+   $fh = $file->open('a') or croak "Can't append to $file: $!";
+  
+  =item $file->touch
+  
+  Sets the modification and access time of the given file to right now,
+  if the file exists.  If it doesn't exist, C<touch()> will I<make> it
+  exist, and - YES! - set its modification and access time to now.
+  
+  =item $file->slurp()
+  
+  In a scalar context, returns the contents of C<$file> in a string.  In
+  a list context, returns the lines of C<$file> (according to how C<$/>
+  is set) as a list.  If the file can't be read, this method will throw
+  an exception.
+  
+  If you want C<chomp()> run on each line of the file, pass a true value
+  for the C<chomp> or C<chomped> parameters:
+  
+    my @lines = $file->slurp(chomp => 1);
+  
+  You may also use the C<iomode> parameter to pass in an IO mode to use
+  when opening the file, usually IO layers (though anything accepted by
+  the MODE argument of C<open()> is accepted here).  Just make sure it's
+  a I<reading> mode.
+  
+    my @lines = $file->slurp(iomode => ':crlf');
+    my $lines = $file->slurp(iomode => '<:encoding(UTF-8)');
+  
+  The default C<iomode> is C<r>.
+  
+  Lines can also be automatically splitted, mimicking the perl command-line
+  option C<-a> by using the C<split> parameter. If this parameter is used,
+  each line will be returned as an array ref.
+  
+      my @lines = $file->slurp( chomp => 1, split => qr/\s*,\s*/ );
+  
+  The C<split> parameter can only be used in a list context.
+  
+  =item $file->spew( $content );
+  
+  The opposite of L</slurp>, this takes a list of strings and prints them
+  to the file in write mode.  If the file can't be written to, this method
+  will throw an exception.
+  
+  The content to be written can be either an array ref or a plain scalar.
+  If the content is an array ref then each entry in the array will be
+  written to the file.
+  
+  You may use the C<iomode> parameter to pass in an IO mode to use when
+  opening the file, just like L</slurp> supports.
+  
+    $file->spew(iomode => '>:raw', $content);
+  
+  The default C<iomode> is C<w>.
+  
+  =item $file->traverse(sub { ... }, @args)
+  
+  Calls the given callback on $file. This doesn't do much on its own,
+  but see the associated documentation in L<Path::Class::Dir>.
+  
+  =item $file->remove()
+  
+  This method will remove the file in a way that works well on all
+  platforms, and returns a boolean value indicating whether or not the
+  file was successfully removed.  
+  
+  C<remove()> is better than simply calling Perl's C<unlink()> function,
+  because on some platforms (notably VMS) you actually may need to call
+  C<unlink()> several times before all versions of the file are gone -
+  the C<remove()> method handles this process for you.
+  
+  =item $st = $file->stat()
+  
+  Invokes C<< File::stat::stat() >> on this file and returns a
+  L<File::stat> object representing the result.
+  
+  =item $st = $file->lstat()
+  
+  Same as C<stat()>, but if C<$file> is a symbolic link, C<lstat()>
+  stats the link instead of the file the link points to.
+  
+  =item $class = $file->dir_class()
+  
+  Returns the class which should be used to create directory objects.
+  
+  Generally overridden whenever this class is subclassed.
+  
+  =back
+  
+  =head1 AUTHOR
+  
+  Ken Williams, kwilliams@cpan.org
+  
+  =head1 SEE ALSO
+  
+  L<Path::Class>, L<Path::Class::Dir>, L<File::Spec>
+  
+  =cut
+PATH_CLASS_FILE
+
 $fatpacked{"lib/core/only.pm"} = <<'LIB_CORE_ONLY';
   package lib::core::only;
   
@@ -2042,10 +2830,9 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
   use File::Spec ();
   use File::Path ();
-  use Carp ();
   use Config;
   
-  our $VERSION = '1.008004'; # 1.8.4
+  our $VERSION = '1.008010'; # 1.8.10
   
   our @KNOWN_FLAGS = qw(--self-contained --deactivate --deactivate-all);
   
@@ -2209,6 +2996,7 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
       }
     };
     unless (defined $homedir) {
+      require Carp;
       Carp::croak(
         "Couldn't resolve homedir for "
         .(defined $user ? $user : 'current user')
@@ -2241,7 +3029,13 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     my $interpolate = LITERAL_ENV;
     my @active_lls = $class->active_paths;
   
-    $path = $class->ensure_dir_structure_for($path);
+    $class->ensure_dir_structure_for($path);
+  
+    # On Win32 directories often contain spaces. But some parts of the CPAN
+    # toolchain don't like that. To avoid this, GetShortPathName() gives us
+    # an alternate representation that has none.
+    # This only works if the directory already exists.
+    $path = Win32::GetShortPathName($path) if $^O eq 'MSWin32';
   
     if (! $deactivating) {
       if (@active_lls && $active_lls[-1] eq $path) {
@@ -2262,7 +3056,15 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
       exit 0;
     } else {
       $class->setup_env_hash_for($path, $deactivating);
-      @INC = _uniq(split($Config{path_sep}, $ENV{PERL5LIB}), @INC);
+      my $arch_dir = $Config{archname};
+      @INC = _uniq(
+    (
+        # Inject $path/$archname for each path in PERL5LIB
+        map { ( File::Spec->catdir($_, $arch_dir), $_ ) }
+        split($Config{path_sep}, $ENV{PERL5LIB})
+    ),
+    @INC
+      );
     }
   }
   
@@ -2287,11 +3089,7 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
       warn "Attempting to create directory ${path}\n";
     }
     File::Path::mkpath($path);
-    # Need to have the path exist to make a short name for it, so
-    # converting to a short name here.
-    $path = Win32::GetShortPathName($path) if $^O eq 'MSWin32';
-  
-    return $path;
+    return
   }
   
   sub guess_shelltype {
@@ -2394,35 +3192,71 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     }
   }
   
+  # Build an environment value for a variable like PATH from a list of paths.
+  # References to existing variables are given as references to the variable name.
+  # Duplicates are removed.
+  #
+  # options:
+  # - interpolate: INTERPOLATE_ENV/LITERAL_ENV
+  # - exists: paths are included only if they exist (default: interpolate == INTERPOLATE_ENV)
+  # - filter: function to apply to each path do decide if it must be included
+  # - empty: the value to return in the case of empty value
+  my %ENV_LIST_VALUE_DEFAULTS = (
+      interpolate => INTERPOLATE_ENV,
+      exists => undef,
+      filter => sub { 1 },
+      empty => undef,
+  );
+  sub _env_list_value {
+    my $options = shift;
+    die(sprintf "unknown option '$_' at %s line %u\n", (caller)[1..2])
+      for grep { !exists $ENV_LIST_VALUE_DEFAULTS{$_} } keys %$options;
+    my %options = (%ENV_LIST_VALUE_DEFAULTS, %{ $options });
+    $options{exists} = $options{interpolate} == INTERPOLATE_ENV
+      unless defined $options{exists};
+  
+    my %seen;
+  
+    my $value = join($Config{path_sep}, map {
+        ref $_ ? ($^O eq 'MSWin32' ? "%${$_}%" : "\$${$_}") : $_
+      } grep {
+        ref $_ || (defined $_
+                   && length($_) > 0
+                   && !$seen{$_}++
+                   && $options{filter}->($_)
+                   && (!$options{exists} || -e $_))
+      } map {
+        if (ref $_ eq 'SCALAR' && $options{interpolate} == INTERPOLATE_ENV) {
+          defined $ENV{${$_}} ? (split /\Q$Config{path_sep}/, $ENV{${$_}}) : ()
+        } else {
+          $_
+        }
+      } @_);
+    return length($value) ? $value : $options{empty};
+  }
+  
   sub build_activate_environment_vars_for {
     my ($class, $path, $interpolate) = @_;
     return (
-      PERL_LOCAL_LIB_ROOT => join($Config{path_sep},
-                (($ENV{PERL_LOCAL_LIB_ROOT}||()) ?
-                  ($interpolate == INTERPOLATE_ENV
-                    ? ($ENV{PERL_LOCAL_LIB_ROOT}||())
-                    : (($^O ne 'MSWin32') ? '$PERL_LOCAL_LIB_ROOT' 
-                      : '%PERL_LOCAL_LIB_ROOT%' ))
-                  : ()),
-                  $path
+      PERL_LOCAL_LIB_ROOT =>
+              _env_list_value(
+                { interpolate => $interpolate, exists => 0, empty => '' },
+                \'PERL_LOCAL_LIB_ROOT',
+                $path,
               ),
       PERL_MB_OPT => "--install_base ${path}",
       PERL_MM_OPT => "INSTALL_BASE=${path}",
-      PERL5LIB => join($Config{path_sep},
-                    $class->install_base_arch_path($path),
-                    $class->install_base_perl_path($path),
-                    (($ENV{PERL5LIB}||()) ?
-                      ($interpolate == INTERPOLATE_ENV
-                        ? ($ENV{PERL5LIB})
-                        : (($^O ne 'MSWin32') ? '$PERL5LIB' : '%PERL5LIB%' ))
-                      : ())
-                  ),
-      PATH => join($Config{path_sep},
-                $class->install_base_bin_path($path),
-                ($interpolate == INTERPOLATE_ENV
-                  ? ($ENV{PATH}||())
-                  : (($^O ne 'MSWin32') ? '$PATH' : '%PATH%' ))
-               ),
+      PERL5LIB =>
+              _env_list_value(
+                { interpolate => $interpolate, exists => 0, empty => '' },
+                $class->install_base_perl_path($path),
+                \'PERL5LIB',
+              ),
+      PATH => _env_list_value(
+                { interpolate => $interpolate, exists => 0, empty => '' },
+          $class->install_base_bin_path($path),
+                \'PATH',
+              ),
     )
   }
   
@@ -2430,7 +3264,7 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     my ($class) = @_;
   
     return () unless defined $ENV{PERL_LOCAL_LIB_ROOT};
-    return split /\Q$Config{path_sep}/, $ENV{PERL_LOCAL_LIB_ROOT};
+    return grep { $_ ne '' } split /\Q$Config{path_sep}/, $ENV{PERL_LOCAL_LIB_ROOT};
   }
   
   sub build_deactivate_environment_vars_for {
@@ -2443,40 +3277,42 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
       return ();
     }
   
-    my @new_ll_root = grep { $_ ne $path } @active_lls;
-    my @new_perl5lib = grep {
-      $_ ne $class->install_base_arch_path($path) &&
-      $_ ne $class->install_base_perl_path($path)
-    } split /\Q$Config{path_sep}/, $ENV{PERL5LIB};
+    my $perl_path = $class->install_base_perl_path($path);
+    my $arch_path = $class->install_base_arch_path($path);
+    my $bin_path = $class->install_base_bin_path($path);
+  
   
     my %env = (
-      PERL_LOCAL_LIB_ROOT => (@new_ll_root ?
-        join($Config{path_sep}, @new_ll_root) : undef
+      PERL_LOCAL_LIB_ROOT => _env_list_value(
+        {
+          exists => 0,
+        },
+        grep { $_ ne $path } @active_lls
       ),
-      PERL5LIB => (@new_perl5lib ?
-        join($Config{path_sep}, @new_perl5lib) : undef
+      PERL5LIB => _env_list_value(
+        {
+          exists => 0,
+          filter => sub {
+            $_ ne $perl_path && $_ ne $arch_path
+          },
+        },
+        \'PERL5LIB',
       ),
-      PATH => join($Config{path_sep},
-        grep { $_ ne $class->install_base_bin_path($path) }
-        split /\Q$Config{path_sep}/, $ENV{PATH}
+      PATH => _env_list_value(
+        {
+          exists => 0,
+          filter => sub { $_ ne $bin_path },
+        },
+        \'PATH',
       ),
     );
   
     # If removing ourselves from the "top of the stack", set install paths to
     # correspond with the new top of stack.
     if ($active_lls[-1] eq $path) {
-      if (@active_lls > 1) {
-        my $new_top = $active_lls[-2];
-        %env = (%env,
-          PERL_MB_OPT => "--install_base ${new_top}",
-          PERL_MM_OPT => "INSTALL_BASE=${new_top}",
-        );
-      } else {
-        %env = (%env,
-          PERL_MB_OPT => undef,
-          PERL_MM_OPT => undef,
-        );
-      }
+      my $new_top = $active_lls[-2];
+      $env{PERL_MB_OPT} = defined($new_top) ? "--install_base ${new_top}" : undef;
+      $env{PERL_MM_OPT} = defined($new_top) ? "INSTALL_BASE=${new_top}" : undef;
     }
   
     return %env;
@@ -2487,28 +3323,36 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
     my @active_lls = $class->active_paths;
   
-    my @new_perl5lib = split /\Q$Config{path_sep}/, $ENV{PERL5LIB};
-    my @new_path = split /\Q$Config{path_sep}/, $ENV{PATH};
-  
-    for my $path (@active_lls) {
-      @new_perl5lib = grep {
-        $_ ne $class->install_base_arch_path($path) &&
-        $_ ne $class->install_base_perl_path($path)
-      } @new_perl5lib;
-  
-      @new_path = grep {
-        $_ ne $class->install_base_bin_path($path)
-      } @new_path;
-    }
+    my %perl_paths = map { (
+        $class->install_base_perl_path($_) => 1,
+        $class->install_base_arch_path($_) => 1
+      ) } @active_lls;
+    my %bin_paths = map { (
+        $class->install_base_bin_path($_) => 1,
+      ) } @active_lls;
   
     my %env = (
       PERL_LOCAL_LIB_ROOT => undef,
       PERL_MM_OPT => undef,
       PERL_MB_OPT => undef,
-      PERL5LIB => (@new_perl5lib ?
-        join($Config{path_sep}, @new_perl5lib) : undef
+      PERL5LIB => _env_list_value(
+        {
+          exists => 0,
+          filter => sub {
+            ! scalar grep { exists $perl_paths{$_} } $_[0]
+          },
+        },
+        \'PERL5LIB'
       ),
-      PATH => join($Config{path_sep}, @new_path),
+      PATH => _env_list_value(
+        {
+          exists => 0,
+          filter => sub {
+            ! scalar grep { exists $bin_paths{$_} } $_[0]
+          },
+        },
+        \'PATH'
+      ),
     );
   
     return %env;
@@ -2679,7 +3523,7 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     set PATH=C:\DOCUME~1\ADMINI~1\perl5\bin;%PATH%
     
     ### To set the environment for this shell alone
-    C:\>perl -Mlocal::lib > %TEMP%\tmp.bat && %TEMP%\tmp.bat && del %TEMP%\temp.bat
+    C:\>perl -Mlocal::lib > %TEMP%\tmp.bat && %TEMP%\tmp.bat && del %TEMP%\tmp.bat
     ### instead of $(perl -Mlocal::lib=./)
   
   If you want the environment entries to persist, you'll need to add then to the
@@ -3048,6 +3892,8 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
   Improvements to stacking multiple local::lib dirs and removing them from the
   environment later on contributed by Andrew Rodland <arodland@cpan.org>.
+  
+  Patch for Carp version mismatch contributed by Hakim Cassimally <osfameron@cpan.org>.
   
   =head1 COPYRIGHT
   
