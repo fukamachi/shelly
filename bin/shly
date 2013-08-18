@@ -91,9 +91,11 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       $ENV{LISP_BINARY} = $lisp_bin;
   
       if ( $self->{noinit} ) {
+          # FIXME: Need to load Quicklisp even when `--noinit' is specified.
           $lisp_bin .= ' ' . impl->('noinit_option');
       }
   
+      my @args = @{ $self->{argv} };
       my @evals = ();
   
       if ( -e dumped_core_path ) {
@@ -101,19 +103,22 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
             ( $lisp_bin, impl->('core_option'), dumped_core_path );
       }
       else {
-          unless ( $self->{lisp_impl} eq 'ecl' ) {
+          unless ($self->{lisp_impl} eq 'ecl' || $args[0] eq 'install') {
               print STDERR
-  "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly dump-core\".\n";
+                  "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly dump-core\".\n";
           }
+  
+          push @evals, <<END_OF_LISP;
+  #-quicklisp (format *error-output* "~&[error] Shelly requires Quicklisp but it isn't loaded.~%")
+  END_OF_LISP
   
           if (my $shelly_path = shelly_path) {
               push @evals, "(require (quote asdf))";
               push @evals, qq'(setf asdf:*central-registry* (cons #P"$shelly_path" asdf:*central-registry*))';
           }
   
-          push @evals, <<"END_OF_LISP";
-  (let ((*standard-output* (make-broadcast-stream))
-        )
+          push @evals, <<END_OF_LISP;
+  (let ((*standard-output* (make-broadcast-stream)))
     (handler-case #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)
       (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
        (format *error-output* "~&[error] ~A~&" c)
@@ -126,7 +131,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           push @evals, '(shelly.util::shadowing-use-package :shelly)';
       }
   
-      if ( config->{version} ) {
+      if ($args[0] ne 'install' && config->{version}) {
           push @evals,
             qq((shelly.util::check-version "@{[ config->{version} ]}"));
       }
@@ -141,8 +146,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       }
   
       {
-          my @args = @{ $self->{argv} };
-  
           if ( @args > 0 ) {
               s/^\'/'\\''/ for @args;
               my $eval_expr =
@@ -276,11 +279,13 @@ $fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
       return local_path('config');
   }
   
-  # TODO: どちらも存在しないときはundefを返すべき
   sub shelly_path {
-      return exists $ENV{SHELLY_PATH}
-          ? dir($ENV{SHELLY_PATH})->resolve . '/'
-          : local_path('shelly/');
+      if (exists $ENV{SHELLY_PATH}) {
+          return $ENV{SHELLY_PATH};
+      }
+      if (-e local_path('shelly/')) {
+          return local_path('shelly/')
+      }
   }
   
   sub dumped_core_path {
