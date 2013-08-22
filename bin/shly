@@ -42,7 +42,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           'impl|I=s' => \$self->{lisp_impl},
           'load|L=s' => \my $libraries,
           'file|f=s' => \$self->{shlyfile},
-          'no-init'  => \$self->{noinit},
           'verbose'  => \$self->{verbose},
           'debug'    => \$self->{debug},
       );
@@ -54,7 +53,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       $self->{argv} = \@ARGV;
   
       if ( $self->{help} ) {
-          $self->{noinit} = 1;
           $self->{argv}   = ['shelly::help'];
       }
   }
@@ -90,31 +88,34 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       $ENV{LISP_BINARY} = $lisp_bin;
   
-      if ( $self->{noinit} ) {
-          # FIXME: Need to load Quicklisp even when `--noinit' is specified.
+      my @args = @{ $self->{argv} };
+      my @evals = ();
+      my $is_installing = ($args[0] || '') eq 'install';
+  
+      unless ($is_installing) {
           $lisp_bin .= ' ' . impl->('noinit_option');
       }
   
-      my @args = @{ $self->{argv} };
-      my @evals = ();
+      push @evals, <<END_OF_LISP;
+  #-quicklisp (format *error-output* "~&[error] Shelly requires Quicklisp.~%") #+quicklisp t
+  END_OF_LISP
   
-      if ( -e dumped_core_path ) {
+      if (!$is_installing && -e dumped_core_path) {
           $lisp_bin = join ' ',
-            ( $lisp_bin, impl->('core_option'), dumped_core_path );
+              ( $lisp_bin, impl->('core_option'), dumped_core_path );
       }
       else {
-          unless ($self->{lisp_impl} eq 'ecl' || $args[0] eq 'install') {
+          if (!$is_installing && $self->{lisp_impl} ne 'ecl') {
               print STDERR
                   "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly dump-core\".\n";
           }
   
-          push @evals, <<END_OF_LISP;
-  #-quicklisp (format *error-output* "~&[error] Shelly requires Quicklisp but it isn't loaded.~%")
+          if (!$is_installing && config->{quicklisp_home}) {
+              push @evals, <<END_OF_LISP;
+  (let ((quicklisp-init (merge-pathnames "@{[ config->{quicklisp_home} ]}/setup.lisp")))
+    (when (probe-file quicklisp-init)
+      (load quicklisp-init)))
   END_OF_LISP
-  
-          if (my $shelly_path = shelly_path) {
-              push @evals, "(require (quote asdf))";
-              push @evals, qq'(setf asdf:*central-registry* (cons #P"$shelly_path" asdf:*central-registry*))';
           }
   
           push @evals, <<END_OF_LISP;
@@ -131,16 +132,23 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           push @evals, '(shelly.util::shadowing-use-package :shelly)';
       }
   
-      if ($args[0] ne 'install' && config->{version}) {
-          push @evals,
-            qq((shelly.util::check-version "@{[ config->{version} ]}"));
+      unless ($is_installing) {
+          if (my $shelly_path = shelly_path) {
+              push @evals, "(require (quote asdf))";
+              push @evals, qq'(setf asdf:*central-registry* (cons #P"$shelly_path" asdf:*central-registry*))';
+          }
+  
+          if (config->{version}) {
+              push @evals,
+                  qq((shelly.util::check-version "@{[ config->{version} ]}"));
+          }
       }
   
       for ( @{ $self->{load_libraries} } ) {
           push @evals, "(shelly.util::load-systems :$_)";
       }
   
-      my $shlyfile = exists $self->{shlyfile} ? $self->{shlyfile} : 'shlyfile';
+      my $shlyfile = defined $self->{shlyfile} ? $self->{shlyfile} : 'shlyfile';
       if ($shlyfile && -f $shlyfile) {
           push @evals, qq{(shelly.util::load-shlyfile #P"$shlyfile")};
       }
@@ -239,10 +247,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   =item B<--verbose>
   
   Print some informations.
-  
-  =item B<--no-init>
-  
-  Do not load the user init file.
   
   =item B<--debug>
   
@@ -3983,10 +3987,6 @@ Load libraries before executing the expression.
 =item B<--verbose>
 
 Print some informations.
-
-=item B<--no-init>
-
-Do not load the user init file.
 
 =item B<--debug>
 

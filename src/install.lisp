@@ -61,11 +61,13 @@
 {
     default_lisp => \"~A\",
     version => \"~A\",
+    quicklisp_home => ~:[undef~;~:*\"~A\"~]
 }
 "
               *current-lisp-name*
               (slot-value (asdf:find-system :shelly)
-                          'asdf:version)))
+                          'asdf:version)
+              #+quicklisp ql::*quicklisp-home* #-quicklisp nil))
 
     (dolist (dir '("dumped-cores/" "bin/"))
       (ensure-directories-exist
