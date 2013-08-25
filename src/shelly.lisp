@@ -18,9 +18,6 @@
            :rm-core))
 (in-package :shelly)
 
-(cl-annot:enable-annot-syntax)
-
-@export
 (defun help ()
   "Show a list of Built-In Commands."
   (format t "~&Built-In Commands:~%")
