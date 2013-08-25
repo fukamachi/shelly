@@ -12,6 +12,10 @@
                 :arglist)
   (:import-from :cl-fad
                 :file-exists-p)
+  (:import-from :bordeaux-threads
+                :all-threads
+                :thread-alive-p
+                :join-thread)
   (:import-from :shelly.impl
                 :condition-undefined-function-name))
 (in-package :shelly.core)
@@ -48,8 +52,11 @@
                                #-thread-support nil
                                system-threads)))
              (wait-user-threads ()
-               (loop while (alive-user-threads)
-                     do (sleep 1))))
+               (let
+                 #+ccl ((ccl::*invoke-debugger-hook-on-interrupt* t)
+                        (*debugger-hook* (lambda () (ccl:quit))))
+                 #-ccl ()
+                 (map nil #'bt:join-thread (alive-user-threads)))))
       (when verbose
         (format *debug-io* "~&;-> ~S~%" expr))
 
