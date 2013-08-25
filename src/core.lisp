@@ -123,7 +123,10 @@
       (t arg))))
 
 (defun print-usage (fn)
-  (format t
-          "Usage: ~(~A~) [~{~(~A~^ ~)~}]"
-          fn
-          (swank-backend:arglist fn)))
+  (if (symbolp fn)
+      (format t
+              "~&Usage: ~(~A~) [~{~(~A~^ ~)~}]~%"
+              fn
+              (swank-backend:arglist fn))
+      (format *error-output*
+              "~&[error] Invalid command: ~S~%" fn)))
