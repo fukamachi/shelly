@@ -15,7 +15,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   use File::Which qw(which);
   
   use App::shelly::impl;
-  use App::shelly::config qw(config dumped_core_path);
+  use App::shelly::config qw(config dumped_core_path local_path);
   use App::shelly::command;
   
   sub impl {
@@ -154,12 +154,17 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       $command->check_shelly_version;
       $command->load_libraries($self->{load_libraries});
-      my $shlyfile = defined $self->{shlyfile} ? $self->{shlyfile}
-          : -f 'shlyfile'      ? 'shlyfile'
-          : -f 'shlyfile.lisp' ? 'shlyfile.lisp'
-          : -f 'shlyfile.cl'   ? 'shlyfile.cl'
-          : undef;
-      $command->load_shlyfile($shlyfile);
+  
+      my @shlyfile = qw(shlyfile shlyfile.lisp shlyfile.cl);
+      $command->load_shlyfile(
+          [ grep { -f $_ } map { local_path($_) } @shlyfile ]->[0]
+      );
+      $command->load_shlyfile(
+          defined $self->{shlyfile}
+              ? $self->{shlyfile}
+              : [ grep { -f $_ } @shlyfile ]->[0]
+      );
+  
       $command->run_shelly_command($self->{argv}, $self->{verbose});
   
       return $command->stringify;
@@ -387,7 +392,7 @@ $fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
   use Exporter::Lite;
   use Path::Class qw(dir);
   
-  our @EXPORT_OK = qw(config config_path dumped_core_path shelly_path);
+  our @EXPORT_OK = qw(config config_path dumped_core_path shelly_path local_path);
   
   my $local_base_path = $ENV{HOME} . '/.shelly/';
   
