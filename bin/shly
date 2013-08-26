@@ -139,7 +139,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       $command->add_option(impl->('noinit_option'));
   
       if (!exists $ENV{SHELLY_PATH} && -e dumped_core_path) {
-          $command->add_option(impl->('core_option'), dumped_core_path);
+          $command->set_core(dumped_core_path);
       }
       else {
           if (!exists $ENV{SHELLY_PATH} && $self->{lisp_impl} ne 'ecl') {
@@ -269,6 +269,7 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
       return bless {
           lisp_bin => $args{lisp_bin} || $ENV{LISP_BINARY},
           options  => [],
+          core     => undef,
       }, $class;
   }
   
@@ -280,6 +281,11 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
   sub add_eval_option {
       my ($self, $command) = @_;
       $self->add_option(impl->('eval'), "'$command'");
+  }
+  
+  sub set_core {
+      my ($self, $core) = @_;
+      $self->{core} = $core;
   }
   
   sub requires_quicklisp {
@@ -305,7 +311,8 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
        #+quicklisp
        (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
        #+allegro (exit 1 :quiet t)
-       #-allegro (quit)))
+       #+sbcl    (sb-ext:exit)
+       #-(or allegro sbcl) (quit)))
     (values))
   END_OF_LISP
       $self->add_eval_option('(shelly.util::shadowing-use-package :shelly)');
@@ -378,6 +385,7 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
       my ($self) = @_;
   
       return join ' ', $self->{lisp_bin},
+          ($self->{core} ? (impl->('core_option'), $self->{core}) : ()),
           (impl->('pre_options') || ()), @{ $self->{options} }, (impl->('other_options') || ());
   }
   
