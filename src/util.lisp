@@ -48,7 +48,12 @@
   (when (file-exists-p shlyfile)
     (pushnew (directory-namestring (asdf::truenamize shlyfile))
              asdf:*central-registry*)
-    (load shlyfile)))
+    (let ((*standard-output* (make-broadcast-stream))
+          #+quicklisp (original-quickload #'ql:quickload))
+      (flet (#+quicklisp
+             (ql:quickload (systems &rest args)
+              (apply #'original-quickload systems args)))
+        (load shlyfile)))))
 
 @export
 (defun copy-directory (from to &key overwrite)
