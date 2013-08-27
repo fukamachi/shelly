@@ -9,7 +9,9 @@
   (:import-from :cl-fad
                 :file-exists-p
                 :walk-directory
-                :copy-file))
+                :copy-file)
+  (:import-from :swank-backend
+                :quit-lisp))
 (in-package :shelly.util)
 
 (cl-annot:enable-annot-syntax)
@@ -25,8 +27,11 @@
 
 @export
 (defun load-systems (systems)
-  #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
-  #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil))
+  (handler-case #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
+                #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil))
+    (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
+     (format *error-output* "~&[error] ~A~&" c)
+     (swank-backend:quit-lisp)))
   (shadowing-use-package
    (remove-if-not #'find-package
                   (if (consp systems)
