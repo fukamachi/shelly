@@ -119,8 +119,26 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
      (shelly.util:shadowing-use-package :shelly)
      (save-core-image *dumped-core-path*))
     (T
-     (asdf:run-shell-command "~A ~A '~A' ~A '~A' ~A '~S'"
+     (asdf:run-shell-command "~A ~A ~A '~S' ~A '~A' ~A '~A' ~A '~S'"
       *current-lisp-path*
+
+      #+ccl "--no-init"
+      #+sbcl "--no-userinit"
+      #+allegro "--qq"
+      #+clisp "-norc"
+      #+cmu "-noinit"
+      #+ecl "-norc"
+      #-(or ccl sbcl allegro clisp cmu ecl) ""
+
+      *eval-option*
+      #+quicklisp
+      (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
+        (if (probe-file quicklisp-init)
+            `(load ,quicklisp-init)
+            ""))
+      #-quicklisp
+      '(require (quote asdf))
+
       *eval-option*
       "#+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)"
       *eval-option*
