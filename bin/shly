@@ -54,8 +54,9 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       $self->{argv} = \@ARGV;
   
-      if ( $self->{help} ) {
-          $self->{argv}   = ['shelly::help'];
+      if ( $self->{help} || (!$self->{version} && !@ARGV) ) {
+          $self->{help} = 1;
+          $self->{argv} = ['shelly::help'];
       }
   }
   
@@ -360,25 +361,13 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
       my ($self, $args, $verbose) = @_;
   
       my @args = @$args;
-      if (@args > 0) {
-          s/^\'/'\\''/ for @args;
-          my $eval_expr =
-              sprintf '(shelly.core::interpret (list %s) :verbose %s)',
-                  ( join " ", ( map { "\"$_\"" } @args ) ),
-                      $verbose ? 't' : 'nil';
-          $self->add_eval_option($eval_expr);
-          $self->quit_lisp;
-      }
-      else {
-          $self->run_repl($verbose);
-      }
-  }
-  
-  sub run_repl {
-      my ($self, $verbose) = @_;
-      $self->add_eval_option(
-          sprintf '(shelly::run-repl :verbose %s)', $verbose ? 't' : 'nil'
-      );
+      s/^\'/'\\''/ for @args;
+      my $eval_expr =
+          sprintf '(shelly.core::interpret (list %s) :verbose %s)',
+              ( join " ", ( map { "\"$_\"" } @args ) ),
+                  $verbose ? 't' : 'nil';
+      $self->add_eval_option($eval_expr);
+      $self->quit_lisp;
   }
   
   sub stringify {
@@ -479,12 +468,11 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
   
   config alisp => +{
       impl_name     => 'alisp',
-      pre_options   => '-L ~/.clinit.cl',
       eval          => '-e',
       other_options => '',
       binary        => App::shelly::config::config('alisp')->{binary_path},
       core_option   => '-I',
-      noinit_option => '-q',
+      noinit_option => '--qq',
   };
   
   config clisp => +{
