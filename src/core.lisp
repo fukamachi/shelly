@@ -62,7 +62,8 @@
 
       (let ((result
              (multiple-value-list
-              (handler-case (eval expr)
+              (handler-case (let ((*package* (find-package :cl-user)))
+                              (eval expr))
                 (program-error ()
                   (print-usage (car expr))
                   (values))
