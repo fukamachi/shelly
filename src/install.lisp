@@ -19,20 +19,34 @@
                 :*current-lisp-path*
                 :*eval-option*
                 :save-core-image)
+  (:import-from :shelly.versions
+                :download-version)
   (:import-from :shelly.util
                 :shadowing-use-package
-                :copy-directory))
+                :copy-directory
+                :extract-tarball-stream))
 (in-package :shelly.install)
 
 (cl-annot:enable-annot-syntax)
 
 @export
-(defun install (&key quit-lisp)
+(defun install (&key version)
   "Install Shelly into your environment under \"~/.shelly\"."
+  (let ((shelly-system-path
+         (if version
+             (download-version version
+                               (merge-pathnames ".shelly/" (user-homedir-pathname)))
+             (asdf:system-source-directory :shelly))))
+    (install-from-path shelly-system-path)
+    (when version
+      (delete-directory-and-files shelly-system-path)))
+  (values))
+
+(defun install-from-path (shelly-system-path)
   (let ((home-config-path
          (merge-pathnames ".shelly/" (user-homedir-pathname)))
         (shly-path
-         (asdf:system-relative-pathname :shelly "bin/shly")))
+         (merge-pathnames "bin/shly" shelly-system-path)))
 
     (ensure-directories-exist home-config-path)
 
@@ -65,8 +79,10 @@
 }
 "
               *current-lisp-name*
-              (slot-value (asdf:find-system :shelly)
-                          'asdf:version)
+              (let ((asdf:*central-registry*
+                     (cons shelly-system-path asdf:*central-registry*)))
+                (slot-value (asdf:find-system :shelly)
+                            'asdf:version))
               #+quicklisp ql::*quicklisp-home* #-quicklisp nil))
 
     (dolist (dir '("dumped-cores/" "bin/"))
@@ -88,7 +104,7 @@
     (let ((shelly-dir (merge-pathnames #P"shelly/" home-config-path)))
       (delete-directory-and-files shelly-dir
                                   :if-does-not-exist :ignore)
-      (copy-directory (asdf:system-source-directory :shelly)
+      (copy-directory shelly-system-path
                       shelly-dir))
 
     (dump-core :quit-lisp nil))
@@ -99,10 +115,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
     PATH=$HOME/.shelly/bin:$PATH
 
-")
-  (when quit-lisp
-    (quit-lisp))
-  (values))
+"))
 
 (defvar *dumped-core-path*
     (merge-pathnames (format nil "dumped-cores/~A.core"

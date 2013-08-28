@@ -12,11 +12,15 @@
                 :install
                 :dump-core
                 :rm-core)
+  (:import-from :shelly.versions
+                :release-versions)
   (:export :run-repl
            :install
            :dump-core
            :rm-core))
 (in-package :shelly)
+
+(cl-annot:enable-annot-syntax)
 
 (defun help ()
   "Show a list of Built-In Commands."
@@ -25,4 +29,10 @@
     (format t "~&    ~(~A~)~%        ~A~2%"
             symbol
             (documentation symbol 'function)))
+  (values))
+
+@export
+(defun available-versions ()
+  "Show all the possible Shelly versions."
+  (format t "~{~&~A~%~}" (release-versions))
   (values))

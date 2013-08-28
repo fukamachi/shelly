@@ -21,12 +21,18 @@
   :depends-on (:cl-annot
                :swank
                :cl-fad
-               :bordeaux-threads)
+               :bordeaux-threads
+               :drakma
+               :flexi-streams
+               :yason
+               :chipz
+               :archive)
   :components ((:module "src"
                 :components
-                ((:file "shelly" :depends-on ("core" "install"))
+                ((:file "shelly" :depends-on ("core" "install" "versions"))
                  (:file "core" :depends-on ("impl"))
-                 (:file "install" :depends-on ("impl" "util"))
+                 (:file "install" :depends-on ("impl" "versions" "util"))
+                 (:file "versions")
                  (:file "util")
                  (:file "impl"))))
   :description "Run Common Lisp from shell easily."

@@ -30,6 +30,11 @@ Though I recommend you to install [Quicklisp](http://beta.quicklisp.org/), if yo
 - Swank (a part of [SLIME](http://common-lisp.net/project/slime/))
 - [cl-annot](https://github.com/arielnetworks/cl-annot)
 - [Bordeaux Threads](http://common-lisp.net/project/bordeaux-threads/)
+- [Drakma](http://weitz.de/drakma/)
+- [FLEXI-STREAMS](http://weitz.de/flexi-streams/)
+- [YASON](http://common-lisp.net/project/yason/)
+- [Chipz](http://method-combination.net/lisp/chipz/)
+- [ARCHIVE](https://github.com/froydnj/archive)
 
 ## Installation
 
