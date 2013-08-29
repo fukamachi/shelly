@@ -48,17 +48,41 @@
       (force-output *error-output*))
     (values)))
 
+(defun load-shlyfile (shlyfile)
+  (pushnew (directory-namestring (asdf::truenamize shlyfile))
+           asdf:*central-registry*)
+  (let ((*standard-output* (make-broadcast-stream))
+        #+quicklisp (original-quickload #'ql:quickload))
+    (flet (#+quicklisp
+           (ql:quickload (systems &rest args)
+            (apply #'original-quickload systems args)))
+      (load shlyfile))))
+
 @export
-(defun load-shlyfile (&optional (shlyfile  #P"shlyfile"))
-  (when (file-exists-p shlyfile)
-    (pushnew (directory-namestring (asdf::truenamize shlyfile))
-             asdf:*central-registry*)
-    (let ((*standard-output* (make-broadcast-stream))
-          #+quicklisp (original-quickload #'ql:quickload))
-      (flet (#+quicklisp
-             (ql:quickload (systems &rest args)
-              (apply #'original-quickload systems args)))
-        (load shlyfile)))))
+(defun load-local-shlyfile (&optional shlyfile)
+  (when (and shlyfile
+             (not (fad:file-exists-p shlyfile)))
+    (format *error-output* "Error: No such shlyfile: \"~A\""
+            shlyfile)
+    (swank-backend:quit-lisp))
+
+  (let ((shlyfile (or shlyfile
+                      (car (member-if #'fad:file-exists-p
+                                      '(#P"shlyfile" #P"shlyfile.lisp" #P"shlyfile.cl"))))))
+    (when shlyfile
+      (load-shlyfile shlyfile))))
+
+@export
+(defun load-global-shlyfile ()
+  (let* ((shelly-home
+          (merge-pathnames ".shelly/" (user-homedir-pathname)))
+         (shlyfile
+          (car (member-if #'fad:file-exists-p
+                          (mapcar #'(lambda (path)
+                                      (merge-pathnames path shelly-home))
+                                  '(#P"shlyfile" #P "shlyfile.lisp" #P"shlyfile.cl"))))))
+    (when shlyfile
+      (load-shlyfile shlyfile))))
 
 @export
 (defun copy-directory (from to &key overwrite)
