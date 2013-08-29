@@ -31,7 +31,8 @@
 
 @export
 (defun install (&key version)
-  "Install Shelly into your environment under \"~/.shelly\"."
+  "Install Shelly into your environment under \"~/.shelly\".
+You can install a specific version by using \"--version\"."
   (let ((shelly-system-path
          (if version
              (download-version version

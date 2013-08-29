@@ -38,15 +38,18 @@
 @export
 (defun release-versions ()
   (let ((releases (retrieve-releases)))
-    (mapcar (lambda (release) (gethash "name" release)) releases)))
+    (mapcar #'(lambda (release) (gethash "name" release)) releases)))
 
 @export
 (defun find-version (version)
-  (car
-   (member-if #'(lambda (release)
-                  (string= (gethash "name" release)
-                           version))
-              (retrieve-releases))))
+  (case version
+    (:latest (find-version (car (sort (release-versions) #'string>))))
+    ('nil nil)
+    (t (car
+        (member-if #'(lambda (release)
+                       (string= (gethash "name" release)
+                                version))
+                   (retrieve-releases))))))
 
 (defun version-tarball-url (version)
   (let ((version (find-version version)))
