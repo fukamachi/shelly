@@ -23,8 +23,7 @@
                 :download-version)
   (:import-from :shelly.util
                 :shadowing-use-package
-                :copy-directory
-                :extract-tarball-stream))
+                :copy-directory))
 (in-package :shelly.install)
 
 (cl-annot:enable-annot-syntax)
