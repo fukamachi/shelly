@@ -6,6 +6,8 @@
 (in-package :cl-user)
 (defpackage shelly
   (:use :cl)
+  (:import-from :cl-ppcre
+                :split)
   (:import-from :shelly.core
                 :run-repl)
   (:import-from :shelly.install
@@ -26,9 +28,19 @@
   "Show a list of Built-In Commands."
   (format t "~&Built-In Commands:~%")
   (do-external-symbols (symbol :shelly)
-    (format t "~&    ~(~A~)~%        ~A~2%"
+    (format t "~&    ~(~A~)~%~{        ~A~^~%~}~2%"
             symbol
-            (documentation symbol 'function)))
+            (ppcre:split "\\n" (documentation symbol 'function))))
+  (let (symbols (cl-user-package (find-package :cl-user)))
+    (do-symbols (symbol cl-user-package)
+      (when (and (eq cl-user-package (symbol-package symbol)) (fboundp symbol))
+        (push symbol symbols)))
+    (when symbols
+      (format t "~&Local Commands:~%")
+      (dolist (symbol symbols)
+        (format t "~&    ~(~A~)~:[~;~:*~%~{        ~A~^~%~}~]~2%"
+                symbol
+                (ppcre:split "\\n" (documentation symbol 'function))))))
   (values))
 
 @export
