@@ -30,7 +30,7 @@
   (handler-case #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
                 #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil))
     (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
-     (format *error-output* "~&[error] ~A~&" c)
+     (format *error-output* "~&Error: ~A~&" c)
      (swank-backend:quit-lisp)))
   (shadowing-use-package
    (remove-if-not #'find-package
@@ -44,7 +44,7 @@
     (unless (string= version (slot-value (asdf:find-system :shelly)
                                          'asdf:version))
       (format *error-output*
-              "Warning: different version of Shelly was detected. Try \"shly install\".~%")
+              "~&Warning: different version of Shelly was detected. Try \"shly install\".~%")
       (force-output *error-output*))
     (values)))
 

@@ -30,11 +30,12 @@
   :components ((:module "src"
                 :components
                 ((:file "shelly" :depends-on ("core" "install" "versions"))
-                 (:file "core" :depends-on ("impl"))
+                 (:file "core" :depends-on ("impl" "error"))
                  (:file "install" :depends-on ("impl" "versions" "util"))
                  (:file "versions")
                  (:file "util")
-                 (:file "impl"))))
+                 (:file "impl")
+                 (:file "error"))))
   :description "Run Common Lisp from shell easily."
   :long-description
   #.(with-open-file (stream (merge-pathnames

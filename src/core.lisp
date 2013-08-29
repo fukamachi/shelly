@@ -17,7 +17,11 @@
                 :thread-alive-p
                 :join-thread)
   (:import-from :shelly.impl
-                :condition-undefined-function-name))
+                :condition-undefined-function-name)
+  (:import-from :shelly.error
+                :shelly-error
+                :shelly-read-error
+                :shelly-command-not-found-error))
 (in-package :shelly.core)
 
 (cl-annot:enable-annot-syntax)
@@ -28,8 +32,10 @@
     (cons (handler-case (if (stringp fn)
                             (read-from-string fn)
                             fn)
-            (error (c) (format t "Read-time error: ~A~%~A"
-                               expr c)))
+            (error (c)
+              (error 'shelly-read-error
+                     :expression expr
+                     :format-control (princ-to-string c))))
           (mapcar #'canonicalize-arg
                   args))))
 
@@ -42,48 +48,49 @@
 (defun interpret (expr &key verbose)
   (when verbose
     (format *debug-io* "~&;-> ~S~%" expr))
-  (let ((expr (shelly.core::read expr))
-        (system-threads #+thread-support (bt:all-threads)
-                        #-thread-support nil))
-    (labels ((alive-user-threads ()
-               (remove-if-not #'bt:thread-alive-p
-                              (set-difference
-                               #+thread-support (bt:all-threads)
-                               #-thread-support nil
-                               system-threads)))
-             (wait-user-threads ()
-               (let
-                 #+ccl ((ccl::*invoke-debugger-hook-on-interrupt* t)
-                        (*debugger-hook* (lambda () (ccl:quit))))
-                 #-ccl ()
-                 (map nil #'bt:join-thread (alive-user-threads)))))
-      (when verbose
-        (format *debug-io* "~&;-> ~S~%" expr))
 
-      (let ((result
-             (multiple-value-list
-              (handler-case (let ((*package* (find-package :cl-user)))
-                              (eval expr))
-                (program-error ()
-                  (print-usage (car expr))
-                  (values))
-                (undefined-function (c)
-                  (let ((funcname (condition-undefined-function-name c)))
-                    (if (string-equal funcname (car expr))
-                        (format *error-output* "[error] command not found: ~(~S~)"
-                                funcname)
-                        (format *error-output* "[error] ~A" c)))
-                  (values))
-                (error (c)
-                  (format *error-output* "[error] ~A" c)
-                  (values))))))
-        (when result
-          (shelly.core::print (car result))))
+  (handler-case
+      (let ((expr (shelly.core::read expr))
+            (system-threads #+thread-support (bt:all-threads)
+                            #-thread-support nil))
+        (labels ((alive-user-threads ()
+                   (remove-if-not #'bt:thread-alive-p
+                                  (set-difference
+                                   #+thread-support (bt:all-threads)
+                                   #-thread-support nil
+                                   system-threads)))
+                 (wait-user-threads ()
+                   (let
+                       #+ccl ((ccl::*invoke-debugger-hook-on-interrupt* t)
+                              (*debugger-hook* (lambda () (ccl:quit))))
+                       #-ccl ()
+                       (map nil #'bt:join-thread (alive-user-threads)))))
+          (when verbose
+            (format *debug-io* "~&;-> ~S~%" expr))
 
-      (fresh-line)
+          (let ((result
+                 (multiple-value-list
+                  (handler-case (let ((*package* (find-package :cl-user)))
+                                  (eval expr))
+                    (program-error ()
+                      (print-usage (car expr))
+                      (values))
+                    (undefined-function (c)
+                      (let ((funcname (condition-undefined-function-name c)))
+                        (if (string-equal funcname (car expr))
+                            (error 'shelly-command-not-found-error
+                                   :command funcname)
+                            (error c)))
+                      (values))))))
+            (when result
+              (shelly.core::print (car result))))
 
-      (handler-case (wait-user-threads)
-        (condition () nil)))))
+          (fresh-line)
+
+          (handler-case (wait-user-threads)
+            (condition () nil))))
+    (error (c)
+      (format *error-output* "Error: ~A" c))))
 
 (defun prompt ()
   (fresh-line)
@@ -136,5 +143,6 @@
               "~&Usage: ~(~A~) [~{~(~A~^ ~)~}]~%"
               fn
               (swank-backend:arglist fn))
-      (format *error-output*
-              "~&[error] Invalid command: ~S~%" fn)))
+      (error 'shelly-error
+             :format-control "Invalid command \"~S\""
+             :format-arguments (list fn))))
