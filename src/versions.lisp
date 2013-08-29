@@ -42,6 +42,9 @@
 
 @export
 (defun find-version (version)
+  (when (string= version "latest")
+    (return-from find-version (find-version :latest)))
+
   (case version
     (:latest (find-version (car (sort (release-versions) #'string>))))
     ('nil nil)
