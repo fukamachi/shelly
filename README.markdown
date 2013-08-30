@@ -1,4 +1,4 @@
-# Shelly - Run Common Lisp from shell easily.
+# Shelly - Run Common Lisp from shell easily
 
 ## Usage
 
@@ -12,7 +12,7 @@
 
 Shelly allows you to execute Common Lisp functions like a shell command.
 
-Warning: This software is still ALPHA quality. The APIs will be likely to change.
+<span style="color:red">Warning</span>: This software is still ALPHA quality. The APIs will be likely to change.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ Warning: This software is still ALPHA quality. The APIs will be likely to change
 
 All dependencies will be resolved by [Quicklisp](http://beta.quicklisp.org/), so you don't need to know about this.
 
-Though I recommend you to install [Quicklisp](http://beta.quicklisp.org/), if you decided to use ASDF for instead, you have to install these libraries before installation.
+If you choose to use ASDF for instead, you have to install these libraries before installation.
 
 - [CL-FAD](http://weitz.de/cl-fad/)
 - [CL-PPCRE](http://weitz.de/cl-ppcre/)
@@ -39,16 +39,25 @@ Though I recommend you to install [Quicklisp](http://beta.quicklisp.org/), if yo
 
 ## Installation
 
+### Install from Quicklisp
+
+Shelly stable version is included in Quicklisp dist. I _don't_ recommend this version to use now, but this is the most easy way to try it anyway.
+
     (ql:quickload :shelly)
     (shelly:install)
 
+<!--
+This way doesn't work now.
 or
 
     $ curl -L http://xrl.us/shly | LISP_IMPL=ccl perl - install
 
 Change `LISP_IMPL` to your Lisp implementation name which is one of `sbcl`, `ccl`, `alisp`, `clisp`, `cmucl` and `ecl`.
+-->
 
 ### Install from source
+
+As Shelly is under active development, I highly recommend you to install the latest revision of it.
 
 ```
 $ git clone https://github.com/fukamachi/shelly.git
@@ -64,7 +73,37 @@ Add the following code to your Shell configuration file (such like .bashrc or .z
 
 ## How to use
 
+Running `shly --help` or just `shly` will get you how to use Shelly.
+
+    $ shly
     $ shly --help
+
+## Upgrade
+
+Shelly ver 0.5.0 or higher allows to specify `--version` to `install` command. You can install the latest version of Shelly by running the following command.
+
+```
+$ shly install --version latest
+```
+
+## Uninstall
+
+```
+$ rm -rf ~/.shelly
+```
+
+## Declaring Project specific commands
+
+Shelly loads a local file which is named `shlyfile.lisp` if it exists. You can define project specific commands by writing functions in it.
+
+```common-lisp
+(defun test ()
+  (asdf:test-system :your-app))
+
+(defun build ()
+  ;; Somthing to build your app.
+  )
+```
 
 ## Copyright
 
