@@ -31,7 +31,7 @@
   :components ((:module "src"
                 :components
                 ((:file "shelly" :depends-on ("core" "install" "versions"))
-                 (:file "core" :depends-on ("impl" "error"))
+                 (:file "core" :depends-on ("impl" "error" "util"))
                  (:file "install" :depends-on ("impl" "versions" "util"))
                  (:file "versions")
                  (:file "util")

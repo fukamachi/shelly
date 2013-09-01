@@ -9,9 +9,7 @@
   (:import-from :cl-fad
                 :file-exists-p
                 :walk-directory
-                :copy-file)
-  (:import-from :swank-backend
-                :quit-lisp))
+                :copy-file))
 (in-package :shelly.util)
 
 (cl-annot:enable-annot-syntax)
@@ -31,7 +29,7 @@
                 #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil))
     (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
      (format *error-output* "~&Error: ~A~&" c)
-     (swank-backend:quit-lisp)))
+     (terminate 1)))
   (shadowing-use-package
    (remove-if-not #'find-package
                   (if (consp systems)
@@ -64,7 +62,7 @@
              (not (fad:file-exists-p shlyfile)))
     (format *error-output* "Error: No such shlyfile: \"~A\""
             shlyfile)
-    (swank-backend:quit-lisp))
+    (terminate 1))
 
   (let ((shlyfile (or shlyfile
                       (car (member-if #'fad:file-exists-p
@@ -97,3 +95,13 @@
           (subseq (namestring x) len)
           to))
         :overwrite overwrite)))))
+
+@export
+(defun terminate (&optional (status 0))
+  #+ccl (ccl:quit status)
+  #+sbcl (sb-ext:exit :code status)
+  #+allegro (excl:exit status :quiet t)
+  #+clisp (ext:quit status)
+  #+cmucl (unix:unix-exit status)
+  #+ecl (ext:quit status)
+  #-(or ccl sbcl allegro clisp cmucl ecl) (cl-user::quit))

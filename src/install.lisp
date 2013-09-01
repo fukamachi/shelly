@@ -12,8 +12,6 @@
                 :copy-file
                 :file-exists-p
                 :delete-directory-and-files)
-  (:import-from :swank-backend
-                :quit-lisp)
   (:import-from :shelly.impl
                 :*current-lisp-name*
                 :*current-lisp-path*
@@ -23,7 +21,8 @@
                 :download-version)
   (:import-from :shelly.util
                 :shadowing-use-package
-                :copy-directory))
+                :copy-directory
+                :terminate))
 (in-package :shelly.install)
 
 (cl-annot:enable-annot-syntax)
@@ -171,4 +170,4 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
                      *dumped-core-path*))
     (file-error (c) (princ c)))
 
-  (quit-lisp))
+  (terminate))

@@ -8,7 +8,6 @@
   (:use :cl)
   (:shadow :read :print)
   (:import-from :swank-backend
-                :quit-lisp
                 :arglist)
   (:import-from :cl-fad
                 :file-exists-p)
@@ -21,7 +20,9 @@
   (:import-from :shelly.error
                 :shelly-error
                 :shelly-read-error
-                :shelly-command-not-found-error))
+                :shelly-command-not-found-error)
+  (:import-from :shelly.util
+                :terminate))
 (in-package :shelly.core)
 
 (cl-annot:enable-annot-syntax)
@@ -90,7 +91,8 @@
           (handler-case (wait-user-threads)
             (condition () nil))))
     (error (c)
-      (format *error-output* "Error: ~A" c))))
+      (format *error-output* "Error: ~A" c)
+      (terminate 1))))
 
 (defun prompt ()
   (fresh-line)
@@ -111,7 +113,7 @@
                   :verbose verbose))
              (run-repl))
            (prompt)
-        finally (quit-lisp)))
+        finally (terminalte)))
 
 (defun canonicalize-arg (arg0)
   (unless (stringp arg0)
