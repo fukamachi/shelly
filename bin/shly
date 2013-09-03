@@ -304,13 +304,13 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
       }
   
       $self->add_eval_option(<<END_OF_LISP);
-  (let ((*standard-output* (make-broadcast-stream)))
+  (let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable)))
     (handler-case #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)
       (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
        (format *error-output* "~&Error: ~A~&" c)
        #+quicklisp
        (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
-       #+allegro (exit 1 :quiet t)
+       #+allegro (excl:exit 1 :quiet t)
        #+sbcl    (sb-ext:exit)
        #-(or allegro sbcl) (quit)))
     (values))
@@ -459,11 +459,12 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
   
   config alisp => +{
       impl_name     => 'alisp',
+      pre_options   => q{-batch -e '(loop for filename in excl:*init-file-names* for file = (merge-pathnames filename (user-homedir-pathname)) when (probe-file file) do (load file))'},
       eval          => '-e',
-      other_options => '',
+      other_options => '-kill',
       binary        => App::shelly::config::config('alisp')->{binary_path},
       core_option   => '-I',
-      noinit_option => '--qq',
+      noinit_option => '-qq',
   };
   
   config clisp => +{

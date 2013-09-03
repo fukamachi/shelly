@@ -42,7 +42,7 @@
 
 @export
 (defun save-core-image (filepath)
-  #+allegro (excl:dumplisp :name filepath)
+  #+allegro (progn (excl:dumplisp :name filepath) (excl:exit 1 :quiet t))
   #+ccl (ccl:save-application filepath)
   #+sbcl (sb-ext:save-lisp-and-die filepath)
   #+clisp (progn (ext:saveinitmem filepath) (ext:quit))

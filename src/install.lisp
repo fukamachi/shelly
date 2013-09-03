@@ -136,7 +136,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
       #+ccl "--no-init"
       #+sbcl "--no-userinit"
-      #+allegro "--qq"
+      #+allegro "-qq"
       #+clisp "-norc"
       #+cmu "-noinit"
       #+ecl "-norc"
@@ -155,7 +155,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
       `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
 
       *eval-option*
-      "#+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)"
+      "(let (#+allegro(*readtable* (copy-readtable))) #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly))"
       *eval-option*
       "(shelly.util:shadowing-use-package :shelly)"
       *eval-option*
