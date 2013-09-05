@@ -42,10 +42,22 @@ You can install a specific version by using \"--version\"."
   (values))
 
 (defun install-from-path (shelly-system-path)
-  (let ((home-config-path
-         (merge-pathnames ".shelly/" (user-homedir-pathname)))
-        (shly-path
-         (merge-pathnames "bin/shly" shelly-system-path)))
+  (let* ((home-config-path
+          (merge-pathnames ".shelly/" (user-homedir-pathname)))
+         (shly-path
+          (merge-pathnames "bin/shly" shelly-system-path))
+         (version (let ((asdf:*central-registry*
+                         (cons shelly-system-path asdf:*central-registry*)))
+                    (slot-value (asdf:find-system :shelly)
+                                'asdf:version))))
+
+    ;; Delete dumped cores of all Lisp implementations
+    ;; if the installing version is different from the current version.
+    (let ((current-installed-version (getenv "SHELLY_VERSION")))
+      (unless (or (not current-installed-version)
+                  (string= version current-installed-version))
+        (map nil #'delete-file
+             (fad:list-directory (merge-pathnames "dumped-cores/" home-config-path)))))
 
     (ensure-directories-exist home-config-path)
 
@@ -78,10 +90,7 @@ You can install a specific version by using \"--version\"."
 }
 "
               *current-lisp-name*
-              (let ((asdf:*central-registry*
-                     (cons shelly-system-path asdf:*central-registry*)))
-                (slot-value (asdf:find-system :shelly)
-                            'asdf:version))
+              version
               #+quicklisp ql::*quicklisp-home* #-quicklisp nil))
 
     (dolist (dir '("dumped-cores/" "bin/"))
