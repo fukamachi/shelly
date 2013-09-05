@@ -92,6 +92,8 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           print $command, "\n";
       }
   
+      local $ENV{SHELLY_VERSION} = config->{version};
+  
       !system($command);
   }
   
@@ -111,6 +113,9 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       my $command = App::shelly::command->new;
   
+      if (impl->('init_option')) {
+          $command->add_option(impl->('init_option'));
+      }
       $command->requires_quicklisp;
       $command->load_shelly;
       $command->load_libraries($self->{load_libraries});
@@ -459,11 +464,12 @@ $fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
   
   config alisp => +{
       impl_name     => 'alisp',
-      pre_options   => q{-batch -e '(loop for filename in excl:*init-file-names* for file = (merge-pathnames filename (user-homedir-pathname)) when (probe-file file) do (load file))'},
+      pre_options   => '-batch',
       eval          => '-e',
       other_options => '-kill',
       binary        => App::shelly::config::config('alisp')->{binary_path},
       core_option   => '-I',
+      init_option   => q{-e '(loop for filename in excl:*init-file-names* for file = (merge-pathnames filename (user-homedir-pathname)) when (probe-file file) do (load file))'},
       noinit_option => '-qq',
   };
   
