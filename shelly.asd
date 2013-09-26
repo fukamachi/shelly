@@ -22,12 +22,7 @@
                :swank
                :cl-ppcre
                :cl-fad
-               :bordeaux-threads
-               :drakma
-               :flexi-streams
-               :yason
-               :chipz
-               :archive)
+               :bordeaux-threads)
   :components ((:module "src"
                 :components
                 ((:file "shelly" :depends-on ("core" "install" "versions"))

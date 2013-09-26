@@ -5,31 +5,33 @@
 
 (in-package :cl-user)
 (defpackage shelly.versions
-  (:use :cl)
-  (:import-from :yason
-                :parse)
-  (:import-from :flexi-streams
-                :octets-to-string)
-  (:import-from :drakma
-                :http-request)
-  (:import-from :archive
-                :open-archive
-                :extract-files-from-archive
-                :read-entry-from-archive)
-  (:import-from :chipz
-                :make-decompressing-stream
-                :gzip))
+  (:use :cl))
 (in-package :shelly.versions)
 
 (cl-annot:enable-annot-syntax)
 
+(defun qlrequire (packages)
+  (dolist (package packages)
+    (unless (find-package package)
+      (let ((*standard-output* (make-broadcast-stream)))
+	(ql:quickload package :verbose nil)))))
+
+(defmacro i (symbol &optional (args nil p))
+  (let* ((pos (position #\# (symbol-name symbol)))
+	 (intern `(intern ,(subseq (symbol-name symbol) (1+ pos))
+			  (find-package ,(subseq (symbol-name symbol) 0 pos)))))
+    (if p
+	`(funcall ,intern ,@args)
+	intern)))
+
 (let (releases)
   (defun retrieve-releases ()
+    (qlrequire '(:yason :drakma :flexi-streams))
     (labels ((retrieve-from-api ()
                (let ((res
-                      (yason:parse
-                       (flex:octets-to-string
-                        (drakma:http-request "https://api.github.com/repos/fukamachi/shelly/tags")))))
+		       (i #:yason#parse
+			   ((i #:flex#octets-to-string
+				((i #:drakma#http-request("https://api.github.com/repos/fukamachi/shelly/tags"))))))))
                  res)))
 
       (or releases
@@ -65,9 +67,10 @@
   (let ((tarball-url (version-tarball-url version)))
     (unless tarball-url
       (error "Version ~A is not found." version))
+    (qlrequire '(:drakma :archive :chipz))
 
     (multiple-value-bind (tarball-stream status)
-        (drakma:http-request tarball-url :want-stream t)
+        (i #:drakma#http-request(tarball-url :want-stream t))
       (unless (= status 200)
         (error "Failed to download a tarball from GitHub (~A / status=~D)."
                tarball-url status))
@@ -78,11 +81,13 @@
 
 (defun extract-tarball (tarball-stream &optional (destination *default-pathname-defaults*))
   (let ((*default-pathname-defaults* destination))
-    (let ((archive (archive:open-archive 'archive:tar-archive
-                    (chipz:make-decompressing-stream 'chipz:gzip tarball-stream)
-                    :direction :input)))
+    (qlrequire '(:archive :chipz))
+    (let ((archive (i #:archive#open-archive
+		       ((i #:archive#tar-archive)
+			(i #:chipz#make-decompressing-stream((i #:chipz#gzip) tarball-stream))
+			:direction :input))))
       (prog1
-        (merge-pathnames
-         (archive:name (archive:read-entry-from-archive archive))
-         *default-pathname-defaults*)
-        (archive::extract-files-from-archive archive)))))
+	  (merge-pathnames
+	   (i #:archive#name((i #:archive#read-entry-from-archive(archive))))
+	   *default-pathname-defaults*)
+        (i #:archive#extract-files-from-archive(archive))))))
