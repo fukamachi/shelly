@@ -14,7 +14,8 @@
   (dolist (package packages)
     (unless (find-package package)
       (let ((*standard-output* (make-broadcast-stream)))
-        (ql:quickload package :verbose nil)))))
+        #+quicklisp (ql:quickload package :verbose nil)
+        #-quicklisp (asdf:load-system package :verbose nil)))))
 
 (defmacro i (symbol &optional (args nil p))
   (let* ((pos (position #\# (symbol-name symbol)))
