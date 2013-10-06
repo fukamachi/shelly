@@ -6,7 +6,7 @@
 (in-package :cl-user)
 (defpackage shelly.core
   (:use :cl)
-  (:shadow :read :print)
+  (:shadow :read :read-from-string :print)
   (:import-from :swank-backend
                 :arglist)
   (:import-from :cl-fad
@@ -22,10 +22,17 @@
                 :shelly-read-error
                 :shelly-command-not-found-error)
   (:import-from :shelly.util
-                :terminate))
+                :terminate)
+  (:import-from :shelly.commands
+                :*shelly-commands-package*
+                :*shelly-args*))
 (in-package :shelly.core)
 
 (cl-annot:enable-annot-syntax)
+
+(defun shelly.core::read-from-string (string)
+  (let ((*package* (find-package *shelly-commands-package*)))
+    (cl:read-from-string string)))
 
 @export
 (defun shelly.core::read (expr)
@@ -47,6 +54,7 @@
 
 @export
 (defun interpret (expr &key verbose)
+  (setf *shelly-args* expr)
   (when verbose
     (format *debug-io* "~&;-> ~S~%" expr))
 
@@ -71,7 +79,7 @@
 
           (let ((result
                  (multiple-value-list
-                  (handler-case (let ((*package* (find-package :cl-user)))
+                  (handler-case (let ((*package* (find-package *shelly-commands-package*)))
                                   (eval expr))
                     (program-error ()
                       (print-usage (car expr))
@@ -119,10 +127,7 @@
   (unless (stringp arg0)
     (return-from canonicalize-arg arg0))
 
-  (let ((arg (handler-case (progn
-                             (in-package :cl-user)
-                             (unwind-protect (read-from-string arg0)
-                               (in-package :shelly.core)))
+  (let ((arg (handler-case (read-from-string arg0)
                 (error () arg0))))
     (cond
       ((or (numberp arg) (consp arg) (typep arg 'boolean))
@@ -135,7 +140,7 @@
       ((ignore-errors (fad:file-exists-p arg0)))
       ((and (not (keywordp arg))
             (symbolp arg)
-            (string= (package-name (symbol-package arg)) :common-lisp-user))
+            (string= (package-name (symbol-package arg)) *shelly-commands-package*))
        (string arg0))
       (t arg))))
 

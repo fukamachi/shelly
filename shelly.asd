@@ -25,11 +25,12 @@
                :bordeaux-threads)
   :components ((:module "src"
                 :components
-                ((:file "shelly" :depends-on ("core" "install" "versions"))
-                 (:file "core" :depends-on ("impl" "error" "util"))
+                ((:file "shelly" :depends-on ("core" "install" "versions" "commands"))
+                 (:file "core" :depends-on ("impl" "error" "util" "commands"))
                  (:file "install" :depends-on ("impl" "versions" "util"))
                  (:file "versions")
-                 (:file "util")
+                 (:file "commands")
+                 (:file "util" :depends-on ("commands"))
                  (:file "impl")
                  (:file "error"))))
   :description "Run Common Lisp from shell easily."

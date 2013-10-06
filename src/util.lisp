@@ -9,13 +9,15 @@
   (:import-from :cl-fad
                 :file-exists-p
                 :walk-directory
-                :copy-file))
+                :copy-file)
+  (:import-from :shelly.commands
+                :*shelly-commands-package*))
 (in-package :shelly.util)
 
 (cl-annot:enable-annot-syntax)
 
 @export
-(defun shadowing-use-package (packages-to-use &optional (package *package*))
+(defun shadowing-use-package (packages-to-use &optional (package (or (find-package *shelly-commands-package*) *package*)))
   (let ((packages-to-use (if (consp packages-to-use)
                              packages-to-use
                              (list packages-to-use))))
@@ -50,6 +52,7 @@
   (pushnew (directory-namestring (asdf::truenamize shlyfile))
            asdf:*central-registry*)
   (let ((*standard-output* (make-broadcast-stream))
+        (*package* (find-package *shelly-commands-package*))
         #+quicklisp (original-quickload #'ql:quickload))
     (flet (#+quicklisp
            (ql:quickload (systems &rest args)
