@@ -3,16 +3,18 @@ use strict;
 use warnings;
 
 use FindBin qw($Bin);
-use lib "$Bin/../lib";
+use lib "$Bin/../p5-shelly/lib";
 use Pod::Select;
 use Pod::Find qw(pod_where);
+
+chdir qq{$Bin/../p5-shelly}; 
 
 my $pod;
 {
     open TEMPOUT, '>', \$pod;
     local *STDOUT = *TEMPOUT;
     podselect( pod_where( { -inc => 1 }, 'App::shelly' ) );
-    close TEMPOUT
+    close TEMPOUT;
 }
 
 open my $in,  '<', "$Bin/shly.PL"     or die $!;

@@ -11,7 +11,7 @@ sub find_requires {
 
     my %requires;
     for my $file (@file) {
-        open my $in, "<", $file or die $!;
+        open my $in, "<", "p5-shelly/$file" or die $!;
         while (<$in>) {
             /^\s*(?:use|require) (\S+)[^;]*;\s*$/
                 and $requires{$1} = 1;
@@ -68,13 +68,13 @@ sub pack_modules {
 }
 
 my @modules = grep !in_lib(mod_to_pm($_)), find_requires(qw(lib/App/shelly.pm lib/App/shelly/impl.pm lib/App/shelly/config.pm lib/App/shelly/command.pm));
-pack_modules(cwd . "/fatlib", \@modules, [ 'local::lib', 'Exporter' ]);
+pack_modules(cwd . "p5-shelly/fatlib", \@modules, [ 'local::lib', 'Exporter' ]);
 
 use Config;
-rmtree("fatlib/$Config{archname}");
-rmtree("fatlib/POD2");
+rmtree("p5-shelly/fatlib/$Config{archname}");
+rmtree("p5-shelly/fatlib/POD2");
 
-find({ wanted => \&want, no_chdir => 1 }, "fatlib");
+find({ wanted => \&want, no_chdir => 1 }, "p5-shelly/fatlib");
 
 sub want {
     if (/\.pod$/) {

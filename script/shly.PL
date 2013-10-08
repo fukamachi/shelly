@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use FindBin qw($Bin);
-use lib "$Bin/../lib", "$Bin/../fatlib";
+use lib "$Bin/../p5-shelly/lib", "$Bin/../p5-shelly/fatlib";
 use App::shelly;
 
 use Pod::Usage;
