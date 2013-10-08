@@ -102,6 +102,20 @@ Shelly loads a local file which is named `shlyfile.lisp` if it exists. You can d
   )
 ```
 
+## For developers
+
+### Build a script
+
+```
+$ perl script/build.PL
+```
+
+### Update Perl5 Dependencies
+
+```
+$ perl script/upgrade-fatlib.pl
+```
+
 ## Copyright
 
 Copyright (c) 2012-2013 Eitarow Fukamachi (e.arrows@gmail.com).
