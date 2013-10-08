@@ -1,0 +1,3 @@
+[submodule "p5-shelly"]
+	path = p5-shelly
+	url = https://github.com/fukamachi/p5-shelly
