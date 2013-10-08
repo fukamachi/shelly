@@ -1,0 +1,8 @@
+{
+    ccl   => "/usr/local/bin/ccl64",
+    alisp => "/usr/local/bin/alisp",
+    ecl   => "/usr/local/bin/ecl",
+    cmucl => "/usr/local/bin/cmucl",
+    sbcl  => "/usr/local/bin/sbcl",
+    clisp => "/usr/local/bin/clisp",
+}
