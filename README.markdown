@@ -46,14 +46,11 @@ Shelly stable version is included in Quicklisp dist. I _don't_ recommend this ve
     (ql:quickload :shelly)
     (shelly:install)
 
-<!--
-This way doesn't work now.
 or
 
-    $ curl -L http://xrl.us/shly | LISP_IMPL=ccl perl - install
+    $ curl -L http://shlyfile.org/shly | LISP_IMPL=ccl perl - install
 
 Change `LISP_IMPL` to your Lisp implementation name which is one of `sbcl`, `ccl`, `alisp`, `clisp`, `cmucl` and `ecl`.
--->
 
 ### Install from source
 
