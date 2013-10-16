@@ -45,14 +45,21 @@
     (string (princ result))
     (T (pprint result))))
 
+(defun split-expr (expr &key (by "--"))
+  (loop
+     with tmp
+     for i in expr
+     if (equal i by) collect #1=(prog1 (nreverse tmp) (setq tmp nil)) into result
+     else do (push i tmp) end
+     finally (return (nconc result (list #1#)))))
+
 @export
 (defun interpret (expr &key verbose)
   (when verbose
     (format *debug-io* "~&;-> ~S~%" expr))
 
   (handler-case
-      (let ((expr (shelly.core::read expr))
-            (system-threads #+thread-support (bt:all-threads)
+      (let ((system-threads #+thread-support (bt:all-threads)
                             #-thread-support nil))
         (labels ((alive-user-threads ()
                    (remove-if-not #'bt:thread-alive-p
@@ -66,27 +73,37 @@
                               (*debugger-hook* (lambda () (ccl:quit))))
                        #-ccl ()
                        (map nil #'bt:join-thread (alive-user-threads)))))
-          (when verbose
-            (format *debug-io* "~&;-> ~S~%" expr))
+          (dolist (expr (mapcar #'shelly.core::read (split-expr expr :by "--")))
+            (when verbose
+              (format *debug-io* "~&;-> ~S~%" expr))
 
-          (let ((result
-                 (multiple-value-list
-                  (handler-case (let ((*package* (find-package :cl-user)))
-                                  (eval expr))
-                    (program-error ()
-                      (print-usage (car expr))
-                      (values))
-                    (undefined-function (c)
-                      (let ((funcname (condition-undefined-function-name c)))
-                        (if (string-equal funcname (car expr))
-                            (error 'shelly-command-not-found-error
-                                   :command funcname)
-                            (error c)))
-                      (values))))))
-            (when result
-              (shelly.core::print (car result))))
+            (handler-case (let ((*package* (find-package :cl-user)))
+                            (setf - expr)
+                            (unwind-protect
+                                 (let ((results (multiple-value-list (eval expr))))
+                                   (setf /// //
+                                         // /
+                                         / results
+                                         *** **
+                                         ** *
+                                         * (car results)))
+                              (setf +++ ++
+                                    ++ +
+                                    + -)))
+              (program-error ()
+                (print-usage (car expr))
+                (values))
+              (undefined-function (c)
+                (let ((funcname (condition-undefined-function-name c)))
+                  (if (string-equal funcname (car expr))
+                      (error 'shelly-command-not-found-error
+                             :command funcname)
+                      (error c)))
+                (values)))
 
-          (fresh-line)
+            (when /
+              (shelly.core::print *))
+            (fresh-line))
 
           (handler-case (wait-user-threads)
             (condition () nil))))
@@ -128,8 +145,9 @@
       ((or (numberp arg) (consp arg) (typep arg 'boolean))
        arg)
       ((string= "" arg) arg)
-      ((string= "--" (handler-case (subseq (string arg) 0 2)
-                       (simple-error ())))
+       ((and (> (length (string arg)) 2)
+            (string= "--" (handler-case (subseq (string arg) 0 2)
+                            (simple-error ()))))
        (intern (subseq (string arg) 2)
                :keyword))
       ((ignore-errors (fad:file-exists-p arg0)))
