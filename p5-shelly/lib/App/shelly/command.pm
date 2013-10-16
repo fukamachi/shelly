@@ -101,7 +101,7 @@ sub run_shelly_command {
     my @args = @$args;
     my $eval_expr =
         sprintf '(shelly.core::interpret (list %s) :verbose %s)',
-            ( join " ", ( map { "\"$_\"" } @args ) ),
+            ( join " ", ( map { s/"/\\"/g;"\"$_\"" } @args ) ),
                 $verbose ? 't' : 'nil';
     $self->add_eval_option($eval_expr);
     $self->quit_lisp;

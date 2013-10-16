@@ -28,22 +28,21 @@
 (cl-annot:enable-annot-syntax)
 
 @export
-(defun install (&key version)
+(defun install (&key version (destination (merge-pathnames ".shelly/" (user-homedir-pathname))) full)
   "Install Shelly into your environment under \"~/.shelly\".
 You can install a specific version by using \"--version\"."
   (let ((shelly-system-path
          (if version
              (download-version version
-                               (merge-pathnames ".shelly/" (user-homedir-pathname)))
+                               destination)
              (asdf:system-source-directory :shelly))))
-    (install-from-path shelly-system-path)
+    (install-from-path shelly-system-path destination full)
     (when version
       (delete-directory-and-files shelly-system-path)))
   (values))
 
-(defun install-from-path (shelly-system-path)
-  (let* ((home-config-path
-          (merge-pathnames ".shelly/" (user-homedir-pathname)))
+(defun install-from-path (shelly-system-path destination full)
+  (let* ((home-config-path destination)
          (shly-path
           (merge-pathnames "bin/shly" shelly-system-path))
          (version (let ((asdf:*central-registry*
@@ -91,7 +90,7 @@ You can install a specific version by using \"--version\"."
 "
               *current-lisp-name*
               version
-              #+quicklisp ql::*quicklisp-home* #-quicklisp nil))
+              #+quicklisp (if full (merge-pathnames "quicklisp/" destination) ql::*quicklisp-home*) #-quicklisp nil))
 
     (dolist (dir '("dumped-cores/" "bin/"))
       (ensure-directories-exist
@@ -114,69 +113,85 @@ You can install a specific version by using \"--version\"."
                                   :if-does-not-exist :ignore)
       (copy-directory shelly-system-path
                       shelly-dir))
+    (when full
+      (let ((quicklisp-dir (merge-pathnames "quicklisp/" destination)))
+        (delete-directory-and-files quicklisp-dir
+                                    :if-does-not-exist :ignore)
+        (ensure-directories-exist quicklisp-dir)
+        ;; XXX: must be more portable.
+        (asdf:run-shell-command (format nil #.(if #+(or mswindows win32 windows) t
+                                                  "xcopy ~A ~A /E"
+                                                  "cp -r ~A ~A")
+                                        (namestring #+quicklisp ql::*quicklisp-home* #-quicklisp nil)
+                                        (namestring quicklisp-dir)))))
 
-    (dump-core :quit-lisp nil))
+    (dump-core :quit-lisp nil :destination destination))
 
   (format t "~&
 Successfully installed!
 Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
-    PATH=$HOME/.shelly/bin:$PATH
+    PATH=~Abin:$PATH
 
-"))
+" (if (equalp destination (merge-pathnames ".shelly/" (user-homedir-pathname)))
+      "$HOME/.shelly/"
+      (namestring destination))))
 
-(defvar *dumped-core-path*
-    (merge-pathnames (format nil "dumped-cores/~A.core"
-                             *current-lisp-name*)
-                     (merge-pathnames ".shelly/" (user-homedir-pathname))))
+(defun dumped-core-path (destination)
+  (merge-pathnames (format nil "dumped-cores/~A.core"
+                           *current-lisp-name*)
+    destination))
 
 @export
-(defun dump-core (&key (quit-lisp t))
+(defun dump-core (&key (quit-lisp t) (destination (merge-pathnames ".shelly/" (user-homedir-pathname))))
   "Dump Lisp core image file for faster startup."
-  (cond
-    (quit-lisp
-     #+quicklisp (ql:quickload :shelly)
-     #-quicklisp (asdf:load-system :shelly)
-     (shelly.util:shadowing-use-package :shelly)
-     (save-core-image *dumped-core-path*))
-    (T
-     (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~A' ~A '~S'"
-      *current-lisp-path*
+  (let ((dumped-core-path (dumped-core-path destination)))
+    (cond
+      (quit-lisp
+       #+quicklisp (ql:quickload :shelly)
+       #-quicklisp (asdf:load-system :shelly)
+       (shelly.util:shadowing-use-package :shelly)
+       (save-core-image dumped-core-path))
+      (T
+       (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~A' ~A '~S'"
+         *current-lisp-path*
 
-      #+ccl "--no-init"
-      #+sbcl "--no-userinit"
-      #+allegro "-qq"
-      #+clisp "-norc"
-      #+cmu "-noinit"
-      #+ecl "-norc"
-      #-(or ccl sbcl allegro clisp cmu ecl) ""
+         #+ccl "--no-init"
+         #+sbcl "--no-userinit"
+         #+allegro "-qq"
+         #+clisp "-norc"
+         #+cmu "-noinit"
+         #+ecl "-norc"
+         #-(or ccl sbcl allegro clisp cmu ecl) ""
 
-      *eval-option*
-      #+quicklisp
-      (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
-        (if (probe-file quicklisp-init)
-            `(load ,quicklisp-init)
-            ""))
-      #-quicklisp
-      '(require (quote asdf))
+         *eval-option*
+         #+quicklisp
+         (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
+           (if (probe-file quicklisp-init)
+               `(load ,quicklisp-init)
+               ""))
+         #-quicklisp
+         '(require (quote asdf))
 
-      *eval-option*
-      `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
+         *eval-option*
+         `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
 
-      *eval-option*
-      "(let (#+allegro(*readtable* (copy-readtable))) #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly))"
-      *eval-option*
-      "(shelly.util:shadowing-use-package :shelly)"
-      *eval-option*
-      '(shelly.impl:save-core-image *dumped-core-path*)))))
+         *eval-option*
+         "(let (#+allegro(*readtable* (copy-readtable))) #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly))"
+         *eval-option*
+         "(shelly.util:shadowing-use-package :shelly)"
+         *eval-option*
+         '(shelly.impl:save-core-image dumped-core-path))))))
+
 
 @export
-(defun rm-core ()
+(defun rm-core (&key (destination (merge-pathnames ".shelly/" (user-homedir-pathname))))
   "Remove saved core image file which created by `dump-core'."
   (handler-case
-      (progn (delete-file *dumped-core-path*)
-             (format t "~&Successfully deleted: ~A~%"
-                     *dumped-core-path*))
+      (let ((dumped-core-path (dumped-core-path destination)))
+        (delete-file dumped-core-path)
+        (format t "~&Successfully deleted: ~A~%"
+                *dumped-core-path*))
     (file-error (c) (princ c)))
 
   (terminate))
