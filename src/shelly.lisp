@@ -16,6 +16,8 @@
                 :rm-core)
   (:import-from :shelly.versions
                 :release-versions)
+  (:import-from :shelly.commands
+                :*shelly-commands-package*)
   (:export :run-repl
            :install
            :dump-core
@@ -31,9 +33,9 @@
     (format t "~&    ~(~A~)~%~{        ~A~^~%~}~2%"
             symbol
             (ppcre:split "\\n" (documentation symbol 'function))))
-  (let (symbols (cl-user-package (find-package :cl-user)))
-    (do-symbols (symbol cl-user-package)
-      (when (and (eq cl-user-package (symbol-package symbol)) (fboundp symbol))
+  (let (symbols (package (find-package *shelly-commands-package*)))
+    (do-symbols (symbol package)
+      (when (and (eq package (symbol-package symbol)) (fboundp symbol))
         (push symbol symbols)))
     (when symbols
       (format t "~&Local Commands:~%")
