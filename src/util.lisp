@@ -30,11 +30,12 @@
     (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
      (format *error-output* "~&Error: ~A~&" c)
      (terminate 1)))
-  (shadowing-use-package
-   (remove-if-not #'find-package
-                  (if (consp systems)
-                      systems
-                      (list systems)))))
+  (let ((packages (remove-if-not #'find-package
+                                 (if (consp systems)
+                                     systems
+                                     (list systems)))))
+    (when packages
+      (shadowing-use-package packages))))
 
 @export
 (defun check-version (version)
