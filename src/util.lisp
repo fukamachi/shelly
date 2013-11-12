@@ -24,12 +24,15 @@
         (shadowing-import symbol package)))))
 
 @export
-(defun load-systems (systems)
-  (handler-case #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
-                #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil))
+(defun load-systems (systems &key verbose)
+  (handler-case (let ((*standard-output* (if verbose
+                                             *standard-output*
+                                             (make-broadcast-stream))))
+                  #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
+                  #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil)))
     (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
-     (format *error-output* "~&Error: ~A~&" c)
-     (terminate 1)))
+      (format *error-output* "~&Error: ~A~&" c)
+      (terminate 1)))
   (let ((packages (remove-if-not #'find-package
                                  (if (consp systems)
                                      systems
@@ -72,7 +75,7 @@
       (load-shlyfile shlyfile))))
 
 @export
-(defun load-global-shlyfile ()
+(defun load-global-shlyfile (&key verbose)
   (let* ((shelly-home
           (merge-pathnames ".shelly/" (user-homedir-pathname)))
          (shlyfile

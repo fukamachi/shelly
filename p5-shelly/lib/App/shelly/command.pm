@@ -15,6 +15,7 @@ sub new {
 
     return bless {
         lisp_bin => $args{lisp_bin} || $ENV{LISP_BINARY},
+        verbose  => $args{verbose},
         options  => [],
         core     => undef,
     }, $class;
@@ -75,8 +76,14 @@ sub check_shelly_version {
 sub load_libraries {
     my ($self, $libraries) = @_;
 
-    for ( @$libraries ) {
-        $self->add_eval_option("(shelly.util::load-systems :$_)");
+    if (@$libraries) {
+        $self->add_eval_option(
+            sprintf(
+                "(shelly.util::load-systems (list :%s) :verbose %s)",
+                (join ' :', @$libraries),
+                $self->{verbose} ? 't' : 'nil'
+            )
+        );
     }
 }
 
@@ -96,13 +103,13 @@ END_OF_LISP
 }
 
 sub run_shelly_command {
-    my ($self, $args, $verbose) = @_;
+    my ($self, $args) = @_;
 
     my @args = @$args;
     my $eval_expr =
         sprintf '(shelly.core::interpret (list %s) :verbose %s)',
             ( join " ", ( map { s/"/\\"/g;"\"$_\"" } @args ) ),
-                $verbose ? 't' : 'nil';
+                $self->{verbose} ? 't' : 'nil';
     $self->add_eval_option($eval_expr);
     $self->quit_lisp;
 }

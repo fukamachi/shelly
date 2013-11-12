@@ -103,7 +103,7 @@ sub build_command {
 sub _build_command_for_install {
     my ($self) = @_;
 
-    my $command = App::shelly::command->new;
+    my $command = App::shelly::command->new(verbose => $self->{verbose});
 
     if (impl->('init_option')) {
         $command->add_option(@{ impl->('init_option') });
@@ -111,7 +111,7 @@ sub _build_command_for_install {
     $command->requires_quicklisp;
     $command->load_shelly;
     $command->load_libraries($self->{load_libraries});
-    $command->run_shelly_command($self->{argv}, $self->{verbose});
+    $command->run_shelly_command($self->{argv});
 
     return $command;
 }
@@ -119,7 +119,7 @@ sub _build_command_for_install {
 sub _build_command_for_dump_core {
     my ($self) = @_;
 
-    my $command = App::shelly::command->new;
+    my $command = App::shelly::command->new(verbose => $self->{verbose});
 
     $command->add_option(impl->('noinit_option'));
 
@@ -128,7 +128,7 @@ sub _build_command_for_dump_core {
     $command->load_shelly;
     $command->check_shelly_version;
     $command->load_libraries($self->{load_libraries});
-    $command->run_shelly_command($self->{argv}, $self->{verbose});
+    $command->run_shelly_command($self->{argv});
 
     return $command;
 }
@@ -136,7 +136,7 @@ sub _build_command_for_dump_core {
 sub _build_command_for_others {
     my ($self) = @_;
 
-    my $command = App::shelly::command->new;
+    my $command = App::shelly::command->new(verbose => $self->{verbose});
 
     $command->add_option(impl->('noinit_option'));
 
@@ -164,7 +164,7 @@ sub _build_command_for_others {
             : q{(shelly.util::load-local-shlyfile)}
     );
 
-    $command->run_shelly_command($self->{argv}, $self->{verbose});
+    $command->run_shelly_command($self->{argv});
 
     return $command;
 }
