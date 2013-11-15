@@ -107,11 +107,16 @@ sub _build_command_for_install {
 
     my $command = App::shelly::command->new(verbose => $self->{verbose});
 
-    if (impl->('init_option')) {
-        $command->add_option(@{ impl->('init_option') });
+    if (defined $self->{core} &&-e $self->{core}) {
+        $command->set_core($self->{core});
     }
-    $command->requires_quicklisp;
-    $command->load_shelly;
+    else {
+        if (impl->('init_option')) {
+            $command->add_option(@{ impl->('init_option') });
+        }
+        $command->requires_quicklisp;
+        $command->load_shelly;
+    }
     $command->load_libraries($self->{load_libraries});
     $command->run_shelly_command($self->{argv});
 
@@ -125,9 +130,14 @@ sub _build_command_for_dump_core {
 
     $command->add_option(impl->('noinit_option'));
 
-    $command->load_quicklisp;
-    $command->requires_quicklisp;
-    $command->load_shelly;
+    if (defined $self->{core} &&-e $self->{core}) {
+        $command->set_core($self->{core});
+    }
+    else {
+        $command->load_quicklisp;
+        $command->requires_quicklisp;
+        $command->load_shelly;
+    }
     $command->check_shelly_version;
     $command->load_libraries($self->{load_libraries});
     $command->run_shelly_command($self->{argv});
