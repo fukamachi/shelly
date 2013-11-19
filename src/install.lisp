@@ -132,7 +132,8 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
 
 @export
 (defun dump-core (&key (quit-lisp t) (path *dumped-core-path*))
-  "Dump Lisp core image file for faster startup."
+  "Dump Lisp core image file for faster startup.
+You can designate which path to dump by using \"--path\"."
   (cond
     (quit-lisp
      #+quicklisp (ql:quickload :shelly)

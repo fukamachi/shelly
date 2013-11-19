@@ -264,7 +264,7 @@ Print some informations.
 
 This flag is for Shelly developers.
 
-=item B<--core file>
+=item B<--core [file]>
 
 Use the specified core file instead of the default.
 
