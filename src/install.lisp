@@ -131,14 +131,15 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
                      (merge-pathnames ".shelly/" (user-homedir-pathname))))
 
 @export
-(defun dump-core (&key (quit-lisp t))
-  "Dump Lisp core image file for faster startup."
+(defun dump-core (&key (quit-lisp t) (path *dumped-core-path*))
+  "Dump Lisp core image file for faster startup.
+You can designate which path to dump by using \"--path\"."
   (cond
     (quit-lisp
      #+quicklisp (ql:quickload :shelly)
      #-quicklisp (asdf:load-system :shelly)
      (shelly.util:shadowing-use-package :shelly)
-     (save-core-image *dumped-core-path*))
+     (save-core-image path))
     (T
      (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~A' ~A '~S'"
       *current-lisp-path*
@@ -168,7 +169,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
       *eval-option*
       "(shelly.util:shadowing-use-package :shelly)"
       *eval-option*
-      '(shelly.impl:save-core-image *dumped-core-path*)))))
+      '(shelly.impl:save-core-image path)))))
 
 @export
 (defun rm-core ()

@@ -36,6 +36,8 @@ sub parse_options {
         'file|f=s'  => \$self->{shlyfile},
         'verbose'   => \$self->{verbose},
         'debug'     => \$self->{debug},
+        'core=s'    => \$self->{core},
+        'no-core'   => \$self->{nocore},
     );
 
     if ($libraries) {
@@ -105,11 +107,16 @@ sub _build_command_for_install {
 
     my $command = App::shelly::command->new(verbose => $self->{verbose});
 
-    if (impl->('init_option')) {
-        $command->add_option(@{ impl->('init_option') });
+    if (defined $self->{core} &&-e $self->{core}) {
+        $command->set_core($self->{core});
     }
-    $command->requires_quicklisp;
-    $command->load_shelly;
+    else {
+        if (impl->('init_option')) {
+            $command->add_option(@{ impl->('init_option') });
+        }
+        $command->requires_quicklisp;
+        $command->load_shelly;
+    }
     $command->load_libraries($self->{load_libraries});
     $command->run_shelly_command($self->{argv});
 
@@ -123,9 +130,14 @@ sub _build_command_for_dump_core {
 
     $command->add_option(impl->('noinit_option'));
 
-    $command->load_quicklisp;
-    $command->requires_quicklisp;
-    $command->load_shelly;
+    if (defined $self->{core} &&-e $self->{core}) {
+        $command->set_core($self->{core});
+    }
+    else {
+        $command->load_quicklisp;
+        $command->requires_quicklisp;
+        $command->load_shelly;
+    }
     $command->check_shelly_version;
     $command->load_libraries($self->{load_libraries});
     $command->run_shelly_command($self->{argv});
@@ -140,7 +152,15 @@ sub _build_command_for_others {
 
     $command->add_option(impl->('noinit_option'));
 
-    if (!exists $ENV{SHELLY_PATH} && -e dumped_core_path) {
+    if(defined $self->{nocore}) {
+        $command->load_quicklisp;
+        $command->requires_quicklisp;
+        $command->load_shelly;
+    }
+    elsif (defined $self->{core} &&-e $self->{core}) {
+        $command->set_core($self->{core});
+    }
+    elsif (!exists $ENV{SHELLY_PATH} && -e dumped_core_path) {
         $command->set_core(dumped_core_path);
     }
     else {
@@ -243,6 +263,14 @@ Print some informations.
 =item B<--debug>
 
 This flag is for Shelly developers.
+
+=item B<--core [file]>
+
+Use the specified core file instead of the default.
+
+=item B<--no-core>
+
+Use implementation default core file.
 
 =back
 
