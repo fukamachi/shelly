@@ -3,7 +3,7 @@ package App::shelly;
 use strict;
 use warnings;
 
-use Getopt::Long qw(:config gnu_getopt pass_through);
+use Getopt::Long qw(:config gnu_getopt pass_through require_order);
 use File::Which qw(which);
 
 use App::shelly::impl;
