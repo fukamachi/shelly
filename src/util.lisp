@@ -53,12 +53,8 @@
 (defun load-shlyfile (shlyfile)
   (pushnew (directory-namestring (asdf::truenamize shlyfile))
            asdf:*central-registry*)
-  (let ((*standard-output* (make-broadcast-stream))
-        #+quicklisp (original-quickload #'ql:quickload))
-    (flet (#+quicklisp
-           (ql:quickload (systems &rest args)
-            (apply #'original-quickload systems args)))
-      (load shlyfile))))
+  (let ((*standard-output* (make-broadcast-stream)))
+    (load shlyfile)))
 
 @export
 (defun load-local-shlyfile (&optional shlyfile)
