@@ -31,8 +31,7 @@
                   #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
                   #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil)))
     (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
-      (format *error-output* "~&Error: ~A~&" c)
-      (terminate 1)))
+      (terminate 1 "Error: ~A" c)))
   (let ((packages (remove-if-not #'find-package
                                  (if (consp systems)
                                      systems
@@ -60,9 +59,7 @@
 (defun load-local-shlyfile (&optional shlyfile)
   (when (and shlyfile
              (not (fad:file-exists-p shlyfile)))
-    (format *error-output* "Error: No such shlyfile: \"~A\""
-            shlyfile)
-    (terminate 1))
+    (terminate 1 "Error: No such shlyfile: \"~A\"" shlyfile))
 
   (let ((shlyfile (or shlyfile
                       (car (member-if #'fad:file-exists-p
@@ -97,7 +94,11 @@
         :overwrite overwrite)))))
 
 @export
-(defun terminate (&optional (status 0))
+(defun terminate (&optional (status 0) format-string &rest format-arguments)
+  (when format-string
+    (fresh-line *error-output*)
+    (apply #'format *error-output* format-string format-arguments)
+    (fresh-line *error-output*))
   #+ccl (ccl:quit status)
   #+sbcl (sb-ext:exit :code status)
   #+allegro (excl:exit status :quiet t)
