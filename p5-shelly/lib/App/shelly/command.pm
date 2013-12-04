@@ -73,6 +73,19 @@ sub check_shelly_version {
     }
 }
 
+sub add_load_path {
+    my ($self, $directories) = @_;
+
+    if (@$directories) {
+        $self->add_eval_option(
+            sprintf(
+                "(shelly.util::add-load-path (list %s))",
+                (join ' ', (map { qq{#P"$_"} } @$directories))
+            )
+        );
+    }
+}
+
 sub load_libraries {
     my ($self, $libraries) = @_;
 

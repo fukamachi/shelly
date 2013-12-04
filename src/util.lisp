@@ -40,6 +40,12 @@
       (shadowing-use-package packages))))
 
 @export
+(defun add-load-path (directories)
+  (setf asdf:*central-registry*
+        (append (remove-if #'null (mapcar #'probe-file directories))
+                asdf:*central-registry*)))
+
+@export
 (defun check-version (version)
   (let ((*standard-output* (make-broadcast-stream)))
     (unless (string= version (slot-value (asdf:find-system :shelly)

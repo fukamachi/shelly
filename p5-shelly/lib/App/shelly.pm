@@ -31,11 +31,12 @@ sub parse_options {
     push @ARGV, @argv;
 
     GetOptions(
-        'impl|I=s'  => \$self->{lisp_impl},
-        'load|L=s'  => \my $libraries,
-        'file|f=s'  => \$self->{shlyfile},
-        'verbose'   => \$self->{verbose},
-        'debug'     => \$self->{debug},
+        'impl=s'   => \$self->{lisp_impl},
+        'I=s@'     => \$self->{load_path},
+        'load|L=s' => \my $libraries,
+        'file|f=s' => \$self->{shlyfile},
+        'verbose'  => \$self->{verbose},
+        'debug'    => \$self->{debug},
     );
 
     if ($libraries) {
@@ -155,6 +156,7 @@ sub _build_command_for_others {
     }
 
     $command->check_shelly_version;
+    $command->add_load_path($self->{load_path});
     $command->load_libraries($self->{load_libraries});
 
     $command->add_eval_option(q{(shelly.util::load-global-shlyfile)});
@@ -224,9 +226,13 @@ $ shly [options] [atom...]
 
 Show this help.
 
-=item B<-I, --impl [implementation]>
+=item B<--impl [implementation]>
 
 Tell what Lisp implementation to use. The default is $LISP_IMPL.
+
+=item B<-I [directory]>
+
+Specify asdf:*central-registry* directory (several -I's allowed).
 
 =item B<-L, --load [library1,library2,...]>
 
