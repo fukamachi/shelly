@@ -13,12 +13,14 @@
   (:import-from :shelly.install
                 :install
                 :dump-core
+                :local-dump-core
                 :rm-core)
   (:import-from :shelly.versions
                 :release-versions)
   (:export :run-repl
            :install
            :dump-core
+           :local-dump-core
            :rm-core))
 (in-package :shelly)
 

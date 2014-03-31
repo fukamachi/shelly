@@ -33,8 +33,8 @@ sub shelly_path {
 }
 
 sub dumped_core_path {
-    return local_path('dumped-cores/')
-      . ( $_[0] || ( $ENV{LISP_IMPL} . '.core' ) );
+    my $core_path = 'dumped-cores/' . ( $_[0] || ( $ENV{LISP_IMPL} . '.core' ) );
+    return -e $core_path ? $core_path : local_path($core_path);
 }
 
 sub config {

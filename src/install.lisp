@@ -131,14 +131,14 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
                      (merge-pathnames ".shelly/" (user-homedir-pathname))))
 
 @export
-(defun dump-core (&key (quit-lisp t))
+(defun dump-core (&key (quit-lisp t) load-systems (output *dumped-core-path*))
   "Dump Lisp core image file for faster startup."
   (cond
     (quit-lisp
-     #+quicklisp (ql:quickload :shelly)
-     #-quicklisp (asdf:load-system :shelly)
+     (mapc #+quicklisp #'ql:quickload #-quicklisp #'asdf:load-system
+           (cons :shelly load-systems))
      (shelly.util:shadowing-use-package :shelly)
-     (save-core-image *dumped-core-path*))
+     (save-core-image output))
     (T
      (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~A' ~A '~S'"
       *current-lisp-path*
@@ -164,11 +164,24 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
       `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
 
       *eval-option*
-      "(let (#+allegro(*readtable* (copy-readtable))) #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly))"
+      (format nil
+              "(let (#+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
+              (cons :shelly
+                    load-systems))
       *eval-option*
       "(shelly.util:shadowing-use-package :shelly)"
       *eval-option*
-      '(shelly.impl:save-core-image *dumped-core-path*)))))
+      `(shelly.impl:save-core-image ,output)))))
+
+@export
+(defun local-dump-core (&rest systems)
+  "Dump Lisp core image file to the current directory.
+This command takes system names to be included in the core."
+  (ensure-directories-exist "dumped-cores/")
+  (dump-core :quit-lisp nil
+             :load-systems systems
+             :output (format nil "dumped-cores/~A.core"
+                             *current-lisp-name*)))
 
 @export
 (defun rm-core ()
