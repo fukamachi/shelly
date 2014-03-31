@@ -19,6 +19,7 @@ sub new {
 
     return bless {
         lisp_impl => $ENV{LISP_IMPL} || config->{default_lisp},
+        load_path      => [],
         load_libraries => [],
         argv           => [],
     }, $class;
@@ -31,17 +32,13 @@ sub parse_options {
     push @ARGV, @argv;
 
     GetOptions(
-        'impl=s'   => \$self->{lisp_impl},
-        'I=s@'     => \$self->{load_path},
-        'load|L=s' => \my $libraries,
-        'file|f=s' => \$self->{shlyfile},
-        'verbose'  => \$self->{verbose},
-        'debug'    => \$self->{debug},
+        'impl=s'    => \$self->{lisp_impl},
+        'I=s@'      => \$self->{load_path},
+        'load|L=s@' => \$self->{load_libraries},
+        'file|f=s'  => \$self->{shlyfile},
+        'verbose'   => \$self->{verbose},
+        'debug'     => \$self->{debug},
     );
-
-    if ($libraries) {
-        $self->{load_libraries} = [ split ',', $libraries ];
-    }
 
     $self->{argv} = \@ARGV;
 
@@ -234,9 +231,9 @@ Tell what Lisp implementation to use. The default is $LISP_IMPL.
 
 Specify asdf:*central-registry* directory (several -I's allowed).
 
-=item B<-L, --load [library1,library2,...]>
+=item B<-L, --load [library]>
 
-Load libraries before executing the expression.
+Specify a library to be loaded before executing the expression (several -L's allowed).
 
 =item B<-V, --version>
 
