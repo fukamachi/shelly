@@ -118,7 +118,7 @@ $ perl script/upgrade-fatlib.pl
 
 ## Copyright
 
-Copyright (c) 2012-2013 Eitarow Fukamachi (e.arrows@gmail.com).
+Copyright (c) 2012-2014 Eitaro Fukamachi (e.arrows@gmail.com).
 
 # License
 

@@ -59,7 +59,7 @@ sub load_shelly {
      #+quicklisp
      (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
      #+allegro (excl:exit 1 :quiet t)
-     #+sbcl    (sb-ext:exit)
+     #+sbcl    (sb-ext:quit)
      #-(or allegro sbcl) (quit)))
   (values))
 END_OF_LISP
