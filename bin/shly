@@ -5,14 +5,13 @@
 BEGIN {
 my %fatpacked;
 
-$fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
+$fatpacked{"App/shelly.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'APP_SHELLY';
   package App::shelly;
   
   use strict;
   use warnings;
   
   use Getopt::Long qw(:config gnu_getopt pass_through require_order);
-  use File::Which qw(which);
   
   use App::shelly::config qw(config lisp_impl dumped_core_path local_path);
   use App::shelly::command;
@@ -191,7 +190,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   =cut
 APP_SHELLY
 
-$fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
+$fatpacked{"App/shelly/command.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'APP_SHELLY_COMMAND';
   package App::shelly::command;
   
   use strict;
@@ -305,7 +304,7 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
   1;
 APP_SHELLY_COMMAND
 
-$fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
+$fatpacked{"App/shelly/config.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'APP_SHELLY_CONFIG';
   package App::shelly::config;
   
   use strict;
@@ -363,285 +362,852 @@ $fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
   1;
 APP_SHELLY_CONFIG
 
-$fatpacked{"Config/ENV.pm"} = <<'CONFIG_ENV';
-  package Config::ENV;
+$fatpacked{"Exporter.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'EXPORTER';
+  package Exporter;
   
-  use strict;
-  use warnings;
+  require 5.006;
   
-  use Carp;
+  # Be lean.
+  #use strict;
+  #no strict 'refs';
   
-  our $VERSION = '0.12';
+  our $Debug = 0;
+  our $ExportLevel = 0;
+  our $Verbose ||= 0;
+  our $VERSION = '5.68';
+  our (%Cache);
+  
+  sub as_heavy {
+    require Exporter::Heavy;
+    # Unfortunately, this does not work if the caller is aliased as *name = \&foo
+    # Thus the need to create a lot of identical subroutines
+    my $c = (caller(1))[3];
+    $c =~ s/.*:://;
+    \&{"Exporter::Heavy::heavy_$c"};
+  }
+  
+  sub export {
+    goto &{as_heavy()};
+  }
   
   sub import {
-  	my $class   = shift;
-  	my $package = caller(0);
+    my $pkg = shift;
+    my $callpkg = caller($ExportLevel);
   
-  	no strict 'refs';
-  	if (__PACKAGE__ eq $class) {
-  		my $name    = shift;
-  		my %opts    = @_;
+    if ($pkg eq "Exporter" and @_ and $_[0] eq "import") {
+      *{$callpkg."::import"} = \&import;
+      return;
+    }
   
-  		push @{"$package\::ISA"}, __PACKAGE__;
+    # We *need* to treat @{"$pkg\::EXPORT_FAIL"} since Carp uses it :-(
+    my $exports = \@{"$pkg\::EXPORT"};
+    # But, avoid creating things if they don't exist, which saves a couple of
+    # hundred bytes per package processed.
+    my $fail = ${$pkg . '::'}{EXPORT_FAIL} && \@{"$pkg\::EXPORT_FAIL"};
+    return export $pkg, $callpkg, @_
+      if $Verbose or $Debug or $fail && @$fail > 1;
+    my $export_cache = ($Cache{$pkg} ||= {});
+    my $args = @_ or @_ = @$exports;
   
-  		for my $method (qw/common config parent load/) {
-  			*{"$package\::$method"} = \&{__PACKAGE__ . "::" . $method}
-  		}
-  
-  		no warnings 'once';
-  		${"$package\::data"} = +{
-  			common  => {},
-  			envs    => {},
-  			name    => $name,
-  			default => $opts{default} || 'default',
-  			export  => $opts{export},
-  		};
-  	} else {
-  		my %opts    = @_;
-  		my $data = _data($class);
-  		if (my $export = $opts{export} || $data->{export}) {
-  			*{"$package\::$export"} = sub () { $class };
-  		}
-  	}
+    if ($args and not %$export_cache) {
+      s/^&//, $export_cache->{$_} = 1
+        foreach (@$exports, @{"$pkg\::EXPORT_OK"});
+    }
+    my $heavy;
+    # Try very hard not to use {} and hence have to  enter scope on the foreach
+    # We bomb out of the loop with last as soon as heavy is set.
+    if ($args or $fail) {
+      ($heavy = (/\W/ or $args and not exists $export_cache->{$_}
+                 or $fail and @$fail and $_ eq $fail->[0])) and last
+                   foreach (@_);
+    } else {
+      ($heavy = /\W/) and last
+        foreach (@_);
+    }
+    return export $pkg, $callpkg, ($args ? @_ : ()) if $heavy;
+    local $SIG{__WARN__} = 
+  	sub {require Carp; &Carp::carp} if not $SIG{__WARN__};
+    # shortcut for the common case of no type character
+    *{"$callpkg\::$_"} = \&{"$pkg\::$_"} foreach @_;
   }
   
-  sub _data {
-  	my $package = shift || caller(1);
-  	no strict 'refs';
-  	no warnings 'once';
-  	${"$package\::data"};
+  # Default methods
+  
+  sub export_fail {
+      my $self = shift;
+      @_;
   }
   
-  sub common ($) { ## no critic
-  	my ($hash) = @_;
-  	_data->{common} = $hash;
+  # Unfortunately, caller(1)[3] "does not work" if the caller is aliased as
+  # *name = \&foo.  Thus the need to create a lot of identical subroutines
+  # Otherwise we could have aliased them to export().
+  
+  sub export_to_level {
+    goto &{as_heavy()};
   }
   
-  sub config ($$) { ## no critic
-  	my ($name, $hash) = @_;
-  	_data->{envs}->{$name} = $hash;
-  	undef _data->{_merged}->{$name};
+  sub export_tags {
+    goto &{as_heavy()};
   }
   
-  sub load ($) {
-  	my $filename = shift;
-  	my $hash = do "$filename";
-  
-  	croak $@ if $@;
-  	croak $! unless defined $hash;
-  	unless (ref($hash) eq 'HASH') {
-  		croak "$filename does not return HashRef.";
-  	}
-  
-  	wantarray ? %$hash : $hash;
+  sub export_ok_tags {
+    goto &{as_heavy()};
   }
   
-  sub parent ($) { ## no critic
-  	my ($name) = @_;
-  	%{ _data->{envs}->{$name} || {} };
+  sub require_version {
+    goto &{as_heavy()};
   }
-  
-  sub current {
-  	my ($package) = @_;
-  	my $data = _data($package);
-  
-  	my $vals = $data->{_merged}->{$package->env} ||= +{
-  		%{ $data->{common} },
-  		%{ $data->{envs}->{$package->env} || {} },
-  		(map { %$_ } @{ $data->{_local} || []}),
-  	};
-  }
-  
-  sub param {
-  	my ($package, $name) = @_;
-  	$package->current->{$name};
-  }
-  
-  sub local {
-  	my ($package, %hash) = @_;
-  	not defined wantarray and croak "local returns guard object; Can't use in void context.";
-  
-  	my $data = _data($package);
-  	$data->{_local} ||= [];
-  	push @{ $data->{_local} }, \%hash;
-  	undef $data->{_merged};
-  
-  	bless sub {
-  		pop @{ $data->{_local} };
-  		undef $data->{_merged};
-  	}, 'Config::ENV::Local';
-  }
-  
-  sub env {
-  	my ($package) = @_;
-  	my $data = _data($package);
-  	$ENV{$data->{name}} || $data->{default};
-  }
-  
-  {
-  	package
-  		Config::ENV::Local;
-  
-  	sub DESTROY {
-  		my $self = shift;
-  		$self->();
-  	}
-  };
   
   1;
   __END__
   
-  =encoding utf8
-  
   =head1 NAME
   
-  Config::ENV - Various config determined by %ENV
+  Exporter - Implements default import method for modules
   
   =head1 SYNOPSIS
   
-    package MyConfig;
-    
-    use Config::ENV 'PLACK_ENV'; # use $ENV{PLACK_ENV} to determine config
-    
-    common +{
-      name => 'foobar',
-    };
-    
-    config development => +{
-      dsn_user => 'dbi:mysql:dbname=user;host=localhost',
-    };
-    
-    config test => +{
-      dsn_user => 'dbi:mysql:dbname=user;host=localhost',
-    };
-    
-    config production => +{
-      dsn_user => 'dbi:mysql:dbname=user;host=127.0.0.254',
-    };
-    
-    config production_bot => +{
-      parent('production'),
-      bot => 1,
-    };
+  In module F<YourModule.pm>:
   
-    # Use it
+    package YourModule;
+    require Exporter;
+    @ISA = qw(Exporter);
+    @EXPORT_OK = qw(munge frobnicate);  # symbols to export on request
   
-    use MyConfig;
-    MyConfig->param('dsn_user'); #=> ...
+  or
+  
+    package YourModule;
+    use Exporter 'import'; # gives you Exporter's import() method directly
+    @EXPORT_OK = qw(munge frobnicate);  # symbols to export on request
+  
+  In other files which wish to use C<YourModule>:
+  
+    use YourModule qw(frobnicate);      # import listed symbols
+    frobnicate ($left, $right)          # calls YourModule::frobnicate
+  
+  Take a look at L</Good Practices> for some variants
+  you will like to use in modern Perl code.
   
   =head1 DESCRIPTION
   
-  Config::ENV is for switching various configurations by environment variable.
+  The Exporter module implements an C<import> method which allows a module
+  to export functions and variables to its users' namespaces.  Many modules
+  use Exporter rather than implementing their own C<import> method because
+  Exporter provides a highly flexible interface, with an implementation optimised
+  for the common case.
   
-  =head1 CONFIG DEFINITION
+  Perl automatically calls the C<import> method when processing a
+  C<use> statement for a module.  Modules and C<use> are documented
+  in L<perlfunc> and L<perlmod>.  Understanding the concept of
+  modules and how the C<use> statement operates is important to
+  understanding the Exporter.
   
-  use this module in your config package:
+  =head2 How to Export
   
-    package MyConfig;
-    use Config::ENV 'FOO_ENV';
+  The arrays C<@EXPORT> and C<@EXPORT_OK> in a module hold lists of
+  symbols that are going to be exported into the users name space by
+  default, or which they can request to be exported, respectively.  The
+  symbols can represent functions, scalars, arrays, hashes, or typeglobs.
+  The symbols must be given by full name with the exception that the
+  ampersand in front of a function is optional, e.g.
   
-    common +{
-      name => 'foobar',
-    };
+      @EXPORT    = qw(afunc $scalar @array);   # afunc is a function
+      @EXPORT_OK = qw(&bfunc %hash *typeglob); # explicit prefix on &bfunc
   
-    config development => +{};
-    config production  => +{};
+  If you are only exporting function names it is recommended to omit the
+  ampersand, as the implementation is faster this way.
   
-    1;
+  =head2 Selecting What to Export
+  
+  Do B<not> export method names!
+  
+  Do B<not> export anything else by default without a good reason!
+  
+  Exports pollute the namespace of the module user.  If you must export
+  try to use C<@EXPORT_OK> in preference to C<@EXPORT> and avoid short or
+  common symbol names to reduce the risk of name clashes.
+  
+  Generally anything not exported is still accessible from outside the
+  module using the C<YourModule::item_name> (or C<< $blessed_ref->method >>)
+  syntax.  By convention you can use a leading underscore on names to
+  informally indicate that they are 'internal' and not for public use.
+  
+  (It is actually possible to get private functions by saying:
+  
+    my $subref = sub { ... };
+    $subref->(@args);            # Call it as a function
+    $obj->$subref(@args);        # Use it as a method
+  
+  However if you use them for methods it is up to you to figure out
+  how to make inheritance work.)
+  
+  As a general rule, if the module is trying to be object oriented
+  then export nothing.  If it's just a collection of functions then
+  C<@EXPORT_OK> anything but use C<@EXPORT> with caution.  For function and
+  method names use barewords in preference to names prefixed with
+  ampersands for the export lists.
+  
+  Other module design guidelines can be found in L<perlmod>.
+  
+  =head2 How to Import
+  
+  In other files which wish to use your module there are three basic ways for
+  them to load your module and import its symbols:
   
   =over 4
   
-  =item common($hash)
+  =item C<use YourModule;>
   
-  Define common config. This $hash is merged with specific environment config.
+  This imports all the symbols from YourModule's C<@EXPORT> into the namespace
+  of the C<use> statement.
   
-  =item config($env, $hash);
+  =item C<use YourModule ();>
   
-  Define environment config. This $hash is just enabled in $env environment.
+  This causes perl to load your module but does not import any symbols.
   
-  =item parent($env);
+  =item C<use YourModule qw(...);>
   
-  Expand $env configuration to inherit it.
+  This imports only the symbols listed by the caller into their namespace.
+  All listed symbols must be in your C<@EXPORT> or C<@EXPORT_OK>, else an error
+  occurs.  The advanced export features of Exporter are accessed like this,
+  but with list entries that are syntactically distinct from symbol names.
   
-  =item load($filename);
+  =back
   
-  `do $filename` and expand it. This can be used following:
+  Unless you want to use its advanced features, this is probably all you
+  need to know to use Exporter.
   
-    # MyConfig.pm
-    common +{
-      API_KEY => 'Set in config.pl',
-      API_SECRET => 'Set in config.pl',
-      load('config.pl),
-    };
+  =head1 Advanced Features
   
-    # config.pl
-    +{
-      API_KEY => 'XFATEAFAFASG',
-      API_SECRET => 'ced3a7927fcf22cba72c2559326be2b8e3f14a0f',
+  =head2 Specialised Import Lists
+  
+  If any of the entries in an import list begins with !, : or / then
+  the list is treated as a series of specifications which either add to
+  or delete from the list of names to import.  They are processed left to
+  right. Specifications are in the form:
+  
+      [!]name         This name only
+      [!]:DEFAULT     All names in @EXPORT
+      [!]:tag         All names in $EXPORT_TAGS{tag} anonymous list
+      [!]/pattern/    All names in @EXPORT and @EXPORT_OK which match
+  
+  A leading ! indicates that matching names should be deleted from the
+  list of names to import.  If the first specification is a deletion it
+  is treated as though preceded by :DEFAULT.  If you just want to import
+  extra names in addition to the default set you will still need to
+  include :DEFAULT explicitly.
+  
+  e.g., F<Module.pm> defines:
+  
+      @EXPORT      = qw(A1 A2 A3 A4 A5);
+      @EXPORT_OK   = qw(B1 B2 B3 B4 B5);
+      %EXPORT_TAGS = (T1 => [qw(A1 A2 B1 B2)], T2 => [qw(A1 A2 B3 B4)]);
+  
+  Note that you cannot use tags in @EXPORT or @EXPORT_OK.
+  
+  Names in EXPORT_TAGS must also appear in @EXPORT or @EXPORT_OK.
+  
+  An application using Module can say something like:
+  
+      use Module qw(:DEFAULT :T2 !B3 A3);
+  
+  Other examples include:
+  
+      use Socket qw(!/^[AP]F_/ !SOMAXCONN !SOL_SOCKET);
+      use POSIX  qw(:errno_h :termios_h !TCSADRAIN !/^EXIT/);
+  
+  Remember that most patterns (using //) will need to be anchored
+  with a leading ^, e.g., C</^EXIT/> rather than C</EXIT/>.
+  
+  You can say C<BEGIN { $Exporter::Verbose=1 }> to see how the
+  specifications are being processed and what is actually being imported
+  into modules.
+  
+  =head2 Exporting Without Using Exporter's import Method
+  
+  Exporter has a special method, 'export_to_level' which is used in situations
+  where you can't directly call Exporter's
+  import method.  The export_to_level
+  method looks like:
+  
+      MyPackage->export_to_level(
+  	$where_to_export, $package, @what_to_export
+      );
+  
+  where C<$where_to_export> is an integer telling how far up the calling stack
+  to export your symbols, and C<@what_to_export> is an array telling what
+  symbols *to* export (usually this is C<@_>).  The C<$package> argument is
+  currently unused.
+  
+  For example, suppose that you have a module, A, which already has an
+  import function:
+  
+      package A;
+  
+      @ISA = qw(Exporter);
+      @EXPORT_OK = qw ($b);
+  
+      sub import
+      {
+  	$A::b = 1;     # not a very useful import method
+      }
+  
+  and you want to Export symbol C<$A::b> back to the module that called 
+  package A.  Since Exporter relies on the import method to work, via 
+  inheritance, as it stands Exporter::import() will never get called. 
+  Instead, say the following:
+  
+      package A;
+      @ISA = qw(Exporter);
+      @EXPORT_OK = qw ($b);
+  
+      sub import
+      {
+  	$A::b = 1;
+  	A->export_to_level(1, @_);
+      }
+  
+  This will export the symbols one level 'above' the current package - ie: to 
+  the program or module that used package A. 
+  
+  Note: Be careful not to modify C<@_> at all before you call export_to_level
+  - or people using your package will get very unexplained results!
+  
+  =head2 Exporting Without Inheriting from Exporter
+  
+  By including Exporter in your C<@ISA> you inherit an Exporter's import() method
+  but you also inherit several other helper methods which you probably don't
+  want.  To avoid this you can do
+  
+    package YourModule;
+    use Exporter qw( import );
+  
+  which will export Exporter's own import() method into YourModule.
+  Everything will work as before but you won't need to include Exporter in
+  C<@YourModule::ISA>.
+  
+  Note: This feature was introduced in version 5.57
+  of Exporter, released with perl 5.8.3.
+  
+  =head2 Module Version Checking
+  
+  The Exporter module will convert an attempt to import a number from a
+  module into a call to C<< $module_name->VERSION($value) >>.  This can
+  be used to validate that the version of the module being used is
+  greater than or equal to the required version.
+  
+  For historical reasons, Exporter supplies a C<require_version> method that
+  simply delegates to C<VERSION>.  Originally, before C<UNIVERSAL::VERSION>
+  existed, Exporter would call C<require_version>.
+  
+  Since the C<UNIVERSAL::VERSION> method treats the C<$VERSION> number as
+  a simple numeric value it will regard version 1.10 as lower than
+  1.9.  For this reason it is strongly recommended that you use numbers
+  with at least two decimal places, e.g., 1.09.
+  
+  =head2 Managing Unknown Symbols
+  
+  In some situations you may want to prevent certain symbols from being
+  exported.  Typically this applies to extensions which have functions
+  or constants that may not exist on some systems.
+  
+  The names of any symbols that cannot be exported should be listed
+  in the C<@EXPORT_FAIL> array.
+  
+  If a module attempts to import any of these symbols the Exporter
+  will give the module an opportunity to handle the situation before
+  generating an error.  The Exporter will call an export_fail method
+  with a list of the failed symbols:
+  
+    @failed_symbols = $module_name->export_fail(@failed_symbols);
+  
+  If the C<export_fail> method returns an empty list then no error is
+  recorded and all the requested symbols are exported.  If the returned
+  list is not empty then an error is generated for each symbol and the
+  export fails.  The Exporter provides a default C<export_fail> method which
+  simply returns the list unchanged.
+  
+  Uses for the C<export_fail> method include giving better error messages
+  for some symbols and performing lazy architectural checks (put more
+  symbols into C<@EXPORT_FAIL> by default and then take them out if someone
+  actually tries to use them and an expensive check shows that they are
+  usable on that platform).
+  
+  =head2 Tag Handling Utility Functions
+  
+  Since the symbols listed within C<%EXPORT_TAGS> must also appear in either
+  C<@EXPORT> or C<@EXPORT_OK>, two utility functions are provided which allow
+  you to easily add tagged sets of symbols to C<@EXPORT> or C<@EXPORT_OK>:
+  
+    %EXPORT_TAGS = (foo => [qw(aa bb cc)], bar => [qw(aa cc dd)]);
+  
+    Exporter::export_tags('foo');     # add aa, bb and cc to @EXPORT
+    Exporter::export_ok_tags('bar');  # add aa, cc and dd to @EXPORT_OK
+  
+  Any names which are not tags are added to C<@EXPORT> or C<@EXPORT_OK>
+  unchanged but will trigger a warning (with C<-w>) to avoid misspelt tags
+  names being silently added to C<@EXPORT> or C<@EXPORT_OK>.  Future versions
+  may make this a fatal error.
+  
+  =head2 Generating Combined Tags
+  
+  If several symbol categories exist in C<%EXPORT_TAGS>, it's usually
+  useful to create the utility ":all" to simplify "use" statements.
+  
+  The simplest way to do this is:
+  
+    %EXPORT_TAGS = (foo => [qw(aa bb cc)], bar => [qw(aa cc dd)]);
+  
+    # add all the other ":class" tags to the ":all" class,
+    # deleting duplicates
+    {
+      my %seen;
+  
+      push @{$EXPORT_TAGS{all}},
+        grep {!$seen{$_}++} @{$EXPORT_TAGS{$_}} foreach keys %EXPORT_TAGS;
     }
   
-  =back
+  F<CGI.pm> creates an ":all" tag which contains some (but not really
+  all) of its categories.  That could be done with one small
+  change:
   
-  =head2 EXPORT
+    # add some of the other ":class" tags to the ":all" class,
+    # deleting duplicates
+    {
+      my %seen;
   
-  You can specify default export name in config class. If you specify 'export' option as following:
+      push @{$EXPORT_TAGS{all}},
+        grep {!$seen{$_}++} @{$EXPORT_TAGS{$_}}
+          foreach qw/html2 html3 netscape form cgi internal/;
+    }
   
-    package MyConfig;
-    use Config::ENV 'FOO_ENV', export => 'config';
+  Note that the tag names in C<%EXPORT_TAGS> don't have the leading ':'.
   
-    ...;
+  =head2 C<AUTOLOAD>ed Constants
   
-  and use it with 'config' function.
+  Many modules make use of C<AUTOLOAD>ing for constant subroutines to
+  avoid having to compile and waste memory on rarely used values (see
+  L<perlsub> for details on constant subroutines).  Calls to such
+  constant subroutines are not optimized away at compile time because
+  they can't be checked at compile time for constancy.
   
-    package Foobar;
-    use MyConfig; # exports 'config' function
+  Even if a prototype is available at compile time, the body of the
+  subroutine is not (it hasn't been C<AUTOLOAD>ed yet).  perl needs to
+  examine both the C<()> prototype and the body of a subroutine at
+  compile time to detect that it can safely replace calls to that
+  subroutine with the constant value.
   
-    config->param('...');
+  A workaround for this is to call the constants once in a C<BEGIN> block:
   
-  =head1 METHODS
+     package My ;
+  
+     use Socket ;
+  
+     foo( SO_LINGER );  ## SO_LINGER NOT optimized away; called at runtime
+     BEGIN { SO_LINGER }
+     foo( SO_LINGER );  ## SO_LINGER optimized away at compile time.
+  
+  This forces the C<AUTOLOAD> for C<SO_LINGER> to take place before
+  SO_LINGER is encountered later in C<My> package.
+  
+  If you are writing a package that C<AUTOLOAD>s, consider forcing
+  an C<AUTOLOAD> for any constants explicitly imported by other packages
+  or which are usually used when your package is C<use>d.
+  
+  =head1 Good Practices
+  
+  =head2 Declaring C<@EXPORT_OK> and Friends
+  
+  When using C<Exporter> with the standard C<strict> and C<warnings>
+  pragmas, the C<our> keyword is needed to declare the package
+  variables C<@EXPORT_OK>, C<@EXPORT>, C<@ISA>, etc.
+  
+    our @ISA = qw(Exporter);
+    our @EXPORT_OK = qw(munge frobnicate);
+  
+  If backward compatibility for Perls under 5.6 is important,
+  one must write instead a C<use vars> statement.
+  
+    use vars qw(@ISA @EXPORT_OK);
+    @ISA = qw(Exporter);
+    @EXPORT_OK = qw(munge frobnicate);
+  
+  =head2 Playing Safe
+  
+  There are some caveats with the use of runtime statements
+  like C<require Exporter> and the assignment to package
+  variables, which can very subtle for the unaware programmer.
+  This may happen for instance with mutually recursive
+  modules, which are affected by the time the relevant
+  constructions are executed.
+  
+  The ideal (but a bit ugly) way to never have to think
+  about that is to use C<BEGIN> blocks.  So the first part
+  of the L</SYNOPSIS> code could be rewritten as:
+  
+    package YourModule;
+  
+    use strict;
+    use warnings;
+  
+    our (@ISA, @EXPORT_OK);
+    BEGIN {
+       require Exporter;
+       @ISA = qw(Exporter);
+       @EXPORT_OK = qw(munge frobnicate);  # symbols to export on request
+    }
+  
+  The C<BEGIN> will assure that the loading of F<Exporter.pm>
+  and the assignments to C<@ISA> and C<@EXPORT_OK> happen
+  immediately, leaving no room for something to get awry
+  or just plain wrong.
+  
+  With respect to loading C<Exporter> and inheriting, there
+  are alternatives with the use of modules like C<base> and C<parent>.
+  
+    use base qw( Exporter );
+    # or
+    use parent qw( Exporter );
+  
+  Any of these statements are nice replacements for
+  C<BEGIN { require Exporter; @ISA = qw(Exporter); }>
+  with the same compile-time effect.  The basic difference
+  is that C<base> code interacts with declared C<fields>
+  while C<parent> is a streamlined version of the older
+  C<base> code to just establish the IS-A relationship.
+  
+  For more details, see the documentation and code of
+  L<base> and L<parent>.
+  
+  Another thorough remedy to that runtime
+  vs. compile-time trap is to use L<Exporter::Easy>,
+  which is a wrapper of Exporter that allows all
+  boilerplate code at a single gulp in the
+  use statement.
+  
+     use Exporter::Easy (
+         OK => [ qw(munge frobnicate) ],
+     );
+     # @ISA setup is automatic
+     # all assignments happen at compile time
+  
+  =head2 What Not to Export
+  
+  You have been warned already in L</Selecting What to Export>
+  to not export:
   
   =over 4
   
-  =item config->param($name)
+  =item *
   
-  Returns config variable named $name.
+  method names (because you don't need to
+  and that's likely to not do what you want),
   
-  =item $guard = config->local(%hash)
+  =item *
   
-  This is for scope limited config. You can use this when you use other values in temporary. Returns guard object.
+  anything by default (because you don't want to surprise your users...
+  badly)
   
-    is config->param('name'), 'original value';
-    {
-      my $guard = config->local(name => 'localized');
-      is config->param('name'), 'localized';
-    };
-    is config->param('name'), 'original value';
+  =item *
   
-  =item config->env
-  
-  Returns current environment name.
-  
-  =item config->current
-  
-  Returns current configuration as HashRef.
+  anything you don't need to (because less is more)
   
   =back
   
-  =head1 AUTHOR
+  There's one more item to add to this list.  Do B<not>
+  export variable names.  Just because C<Exporter> lets you
+  do that, it does not mean you should.
   
-  cho45 E<lt>cho45@lowreal.netE<gt>
+    @EXPORT_OK = qw( $svar @avar %hvar ); # DON'T!
+  
+  Exporting variables is not a good idea.  They can
+  change under the hood, provoking horrible
+  effects at-a-distance, that are too hard to track
+  and to fix.  Trust me: they are not worth it.
+  
+  To provide the capability to set/get class-wide
+  settings, it is best instead to provide accessors
+  as subroutines or class methods instead.
   
   =head1 SEE ALSO
   
+  C<Exporter> is definitely not the only module with
+  symbol exporter capabilities.  At CPAN, you may find
+  a bunch of them.  Some are lighter.  Some
+  provide improved APIs and features.  Peek the one
+  that fits your needs.  The following is
+  a sample list of such modules.
+  
+      Exporter::Easy
+      Exporter::Lite
+      Exporter::Renaming
+      Exporter::Tidy
+      Sub::Exporter / Sub::Installer
+      Perl6::Export / Perl6::Export::Attrs
+  
   =head1 LICENSE
   
-  This library is free software; you can redistribute it and/or modify
-  it under the same terms as Perl itself.
+  This library is free software.  You can redistribute it
+  and/or modify it under the same terms as Perl itself.
   
   =cut
-CONFIG_ENV
+  
+  
+  
+EXPORTER
 
-$fatpacked{"Exporter/Lite.pm"} = <<'EXPORTER_LITE';
+$fatpacked{"Exporter/Heavy.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'EXPORTER_HEAVY';
+  package Exporter::Heavy;
+  
+  use strict;
+  no strict 'refs';
+  
+  # On one line so MakeMaker will see it.
+  require Exporter;  our $VERSION = $Exporter::VERSION;
+  
+  =head1 NAME
+  
+  Exporter::Heavy - Exporter guts
+  
+  =head1 SYNOPSIS
+  
+  (internal use only)
+  
+  =head1 DESCRIPTION
+  
+  No user-serviceable parts inside.
+  
+  =cut
+  
+  #
+  # We go to a lot of trouble not to 'require Carp' at file scope,
+  #  because Carp requires Exporter, and something has to give.
+  #
+  
+  sub _rebuild_cache {
+      my ($pkg, $exports, $cache) = @_;
+      s/^&// foreach @$exports;
+      @{$cache}{@$exports} = (1) x @$exports;
+      my $ok = \@{"${pkg}::EXPORT_OK"};
+      if (@$ok) {
+  	s/^&// foreach @$ok;
+  	@{$cache}{@$ok} = (1) x @$ok;
+      }
+  }
+  
+  sub heavy_export {
+  
+      # First make import warnings look like they're coming from the "use".
+      local $SIG{__WARN__} = sub {
+  	my $text = shift;
+  	if ($text =~ s/ at \S*Exporter\S*.pm line \d+.*\n//) {
+  	    require Carp;
+  	    local $Carp::CarpLevel = 1;	# ignore package calling us too.
+  	    Carp::carp($text);
+  	}
+  	else {
+  	    warn $text;
+  	}
+      };
+      local $SIG{__DIE__} = sub {
+  	require Carp;
+  	local $Carp::CarpLevel = 1;	# ignore package calling us too.
+  	Carp::croak("$_[0]Illegal null symbol in \@${1}::EXPORT")
+  	    if $_[0] =~ /^Unable to create sub named "(.*?)::"/;
+      };
+  
+      my($pkg, $callpkg, @imports) = @_;
+      my($type, $sym, $cache_is_current, $oops);
+      my($exports, $export_cache) = (\@{"${pkg}::EXPORT"},
+                                     $Exporter::Cache{$pkg} ||= {});
+  
+      if (@imports) {
+  	if (!%$export_cache) {
+  	    _rebuild_cache ($pkg, $exports, $export_cache);
+  	    $cache_is_current = 1;
+  	}
+  
+  	if (grep m{^[/!:]}, @imports) {
+  	    my $tagsref = \%{"${pkg}::EXPORT_TAGS"};
+  	    my $tagdata;
+  	    my %imports;
+  	    my($remove, $spec, @names, @allexports);
+  	    # negated first item implies starting with default set:
+  	    unshift @imports, ':DEFAULT' if $imports[0] =~ m/^!/;
+  	    foreach $spec (@imports){
+  		$remove = $spec =~ s/^!//;
+  
+  		if ($spec =~ s/^://){
+  		    if ($spec eq 'DEFAULT'){
+  			@names = @$exports;
+  		    }
+  		    elsif ($tagdata = $tagsref->{$spec}) {
+  			@names = @$tagdata;
+  		    }
+  		    else {
+  			warn qq["$spec" is not defined in %${pkg}::EXPORT_TAGS];
+  			++$oops;
+  			next;
+  		    }
+  		}
+  		elsif ($spec =~ m:^/(.*)/$:){
+  		    my $patn = $1;
+  		    @allexports = keys %$export_cache unless @allexports; # only do keys once
+  		    @names = grep(/$patn/, @allexports); # not anchored by default
+  		}
+  		else {
+  		    @names = ($spec); # is a normal symbol name
+  		}
+  
+  		warn "Import ".($remove ? "del":"add").": @names "
+  		    if $Exporter::Verbose;
+  
+  		if ($remove) {
+  		   foreach $sym (@names) { delete $imports{$sym} } 
+  		}
+  		else {
+  		    @imports{@names} = (1) x @names;
+  		}
+  	    }
+  	    @imports = keys %imports;
+  	}
+  
+          my @carp;
+  	foreach $sym (@imports) {
+  	    if (!$export_cache->{$sym}) {
+  		if ($sym =~ m/^\d/) {
+  		    $pkg->VERSION($sym); # inherit from UNIVERSAL
+  		    # If the version number was the only thing specified
+  		    # then we should act as if nothing was specified:
+  		    if (@imports == 1) {
+  			@imports = @$exports;
+  			last;
+  		    }
+  		    # We need a way to emulate 'use Foo ()' but still
+  		    # allow an easy version check: "use Foo 1.23, ''";
+  		    if (@imports == 2 and !$imports[1]) {
+  			@imports = ();
+  			last;
+  		    }
+  		} elsif ($sym !~ s/^&// || !$export_cache->{$sym}) {
+  		    # Last chance - see if they've updated EXPORT_OK since we
+  		    # cached it.
+  
+  		    unless ($cache_is_current) {
+  			%$export_cache = ();
+  			_rebuild_cache ($pkg, $exports, $export_cache);
+  			$cache_is_current = 1;
+  		    }
+  
+  		    if (!$export_cache->{$sym}) {
+  			# accumulate the non-exports
+  			push @carp,
+  			  qq["$sym" is not exported by the $pkg module\n];
+  			$oops++;
+  		    }
+  		}
+  	    }
+  	}
+  	if ($oops) {
+  	    require Carp;
+  	    Carp::croak("@{carp}Can't continue after import errors");
+  	}
+      }
+      else {
+  	@imports = @$exports;
+      }
+  
+      my($fail, $fail_cache) = (\@{"${pkg}::EXPORT_FAIL"},
+                                $Exporter::FailCache{$pkg} ||= {});
+  
+      if (@$fail) {
+  	if (!%$fail_cache) {
+  	    # Build cache of symbols. Optimise the lookup by adding
+  	    # barewords twice... both with and without a leading &.
+  	    # (Technique could be applied to $export_cache at cost of memory)
+  	    my @expanded = map { /^\w/ ? ($_, '&'.$_) : $_ } @$fail;
+  	    warn "${pkg}::EXPORT_FAIL cached: @expanded" if $Exporter::Verbose;
+  	    @{$fail_cache}{@expanded} = (1) x @expanded;
+  	}
+  	my @failed;
+  	foreach $sym (@imports) { push(@failed, $sym) if $fail_cache->{$sym} }
+  	if (@failed) {
+  	    @failed = $pkg->export_fail(@failed);
+  	    foreach $sym (@failed) {
+                  require Carp;
+  		Carp::carp(qq["$sym" is not implemented by the $pkg module ],
+  			"on this architecture");
+  	    }
+  	    if (@failed) {
+  		require Carp;
+  		Carp::croak("Can't continue after import errors");
+  	    }
+  	}
+      }
+  
+      warn "Importing into $callpkg from $pkg: ",
+  		join(", ",sort @imports) if $Exporter::Verbose;
+  
+      foreach $sym (@imports) {
+  	# shortcut for the common case of no type character
+  	(*{"${callpkg}::$sym"} = \&{"${pkg}::$sym"}, next)
+  	    unless $sym =~ s/^(\W)//;
+  	$type = $1;
+  	no warnings 'once';
+  	*{"${callpkg}::$sym"} =
+  	    $type eq '&' ? \&{"${pkg}::$sym"} :
+  	    $type eq '$' ? \${"${pkg}::$sym"} :
+  	    $type eq '@' ? \@{"${pkg}::$sym"} :
+  	    $type eq '%' ? \%{"${pkg}::$sym"} :
+  	    $type eq '*' ?  *{"${pkg}::$sym"} :
+  	    do { require Carp; Carp::croak("Can't export symbol: $type$sym") };
+      }
+  }
+  
+  sub heavy_export_to_level
+  {
+        my $pkg = shift;
+        my $level = shift;
+        (undef) = shift;			# XXX redundant arg
+        my $callpkg = caller($level);
+        $pkg->export($callpkg, @_);
+  }
+  
+  # Utility functions
+  
+  sub _push_tags {
+      my($pkg, $var, $syms) = @_;
+      my @nontag = ();
+      my $export_tags = \%{"${pkg}::EXPORT_TAGS"};
+      push(@{"${pkg}::$var"},
+  	map { $export_tags->{$_} ? @{$export_tags->{$_}} 
+                                   : scalar(push(@nontag,$_),$_) }
+  		(@$syms) ? @$syms : keys %$export_tags);
+      if (@nontag and $^W) {
+  	# This may change to a die one day
+  	require Carp;
+  	Carp::carp(join(", ", @nontag)." are not tags of $pkg");
+      }
+  }
+  
+  sub heavy_require_version {
+      my($self, $wanted) = @_;
+      my $pkg = ref $self || $self;
+      return ${pkg}->VERSION($wanted);
+  }
+  
+  sub heavy_export_tags {
+    _push_tags((caller)[0], "EXPORT",    \@_);
+  }
+  
+  sub heavy_export_ok_tags {
+    _push_tags((caller)[0], "EXPORT_OK", \@_);
+  }
+  
+  1;
+EXPORTER_HEAVY
+
+$fatpacked{"Exporter/Lite.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'EXPORTER_LITE';
   package Exporter::Lite;
   
   require 5.004;
@@ -840,264 +1406,7 @@ $fatpacked{"Exporter/Lite.pm"} = <<'EXPORTER_LITE';
   =cut
 EXPORTER_LITE
 
-$fatpacked{"File/Which.pm"} = <<'FILE_WHICH';
-  package File::Which;
-  
-  use 5.004;
-  use strict;
-  use Exporter   ();
-  use File::Spec ();
-  
-  use vars qw{$VERSION @ISA @EXPORT @EXPORT_OK};
-  BEGIN {
-  	$VERSION   = '1.09';
-  	@ISA       = 'Exporter';
-  	@EXPORT    = 'which';
-  	@EXPORT_OK = 'where';
-  }
-  
-  use constant IS_VMS => ($^O eq 'VMS');
-  use constant IS_MAC => ($^O eq 'MacOS');
-  use constant IS_DOS => ($^O eq 'MSWin32' or $^O eq 'dos' or $^O eq 'os2');
-  
-  # For Win32 systems, stores the extensions used for
-  # executable files
-  # For others, the empty string is used
-  # because 'perl' . '' eq 'perl' => easier
-  my @PATHEXT = ('');
-  if ( IS_DOS ) {
-  	# WinNT. PATHEXT might be set on Cygwin, but not used.
-  	if ( $ENV{PATHEXT} ) {
-  		push @PATHEXT, split ';', $ENV{PATHEXT};
-  	} else {
-  		# Win9X or other: doesn't have PATHEXT, so needs hardcoded.
-  		push @PATHEXT, qw{.com .exe .bat};
-  	}
-  } elsif ( IS_VMS ) {
-  	push @PATHEXT, qw{.exe .com};
-  }
-  
-  sub which {
-  	my ($exec) = @_;
-  
-  	return undef unless $exec;
-  
-  	my $all = wantarray;
-  	my @results = ();
-  
-  	# check for aliases first
-  	if ( IS_VMS ) {
-  		my $symbol = `SHOW SYMBOL $exec`;
-  		chomp($symbol);
-  		unless ( $? ) {
-  			return $symbol unless $all;
-  			push @results, $symbol;
-  		}
-  	}
-  	if ( IS_MAC ) {
-  		my @aliases = split /\,/, $ENV{Aliases};
-  		foreach my $alias ( @aliases ) {
-  			# This has not been tested!!
-  			# PPT which says MPW-Perl cannot resolve `Alias $alias`,
-  			# let's just hope it's fixed
-  			if ( lc($alias) eq lc($exec) ) {
-  				chomp(my $file = `Alias $alias`);
-  				last unless $file;  # if it failed, just go on the normal way
-  				return $file unless $all;
-  				push @results, $file;
-  				# we can stop this loop as if it finds more aliases matching,
-  				# it'll just be the same result anyway
-  				last;
-  			}
-  		}
-  	}
-  
-  	my @path = File::Spec->path;
-  	if ( IS_DOS or IS_VMS or IS_MAC ) {
-  		unshift @path, File::Spec->curdir;
-  	}
-  
-  	foreach my $base ( map { File::Spec->catfile($_, $exec) } @path ) {
-  		for my $ext ( @PATHEXT ) {
-  			my $file = $base.$ext;
-  
-  			# We don't want dirs (as they are -x)
-  			next if -d $file;
-  
-  			if (
-  				# Executable, normal case
-  				-x _
-  				or (
-  					# MacOS doesn't mark as executable so we check -e
-  					IS_MAC
-  					||
-  					(
-  						IS_DOS
-  						and
-  						grep {
-  							$file =~ /$_\z/i
-  						} @PATHEXT[1..$#PATHEXT]
-  					)
-  					# DOSish systems don't pass -x on
-  					# non-exe/bat/com files. so we check -e.
-  					# However, we don't want to pass -e on files
-  					# that aren't in PATHEXT, like README.
-  					and -e _
-  				)
-  			) {
-  				return $file unless $all;
-  				push @results, $file;
-  			}
-  		}
-  	}
-  
-  	if ( $all ) {
-  		return @results;
-  	} else {
-  		return undef;
-  	}
-  }
-  
-  sub where {
-  	# force wantarray
-  	my @res = which($_[0]);
-  	return @res;
-  }
-  
-  1;
-  
-  __END__
-  
-  =pod
-  
-  =head1 NAME
-  
-  File::Which - Portable implementation of the `which' utility
-  
-  =head1 SYNOPSIS
-  
-    use File::Which;                  # exports which()
-    use File::Which qw(which where);  # exports which() and where()
-    
-    my $exe_path = which('perldoc');
-    
-    my @paths = where('perl');
-    - Or -
-    my @paths = which('perl'); # an array forces search for all of them
-  
-  =head1 DESCRIPTION
-  
-  C<File::Which> was created to be able to get the paths to executable programs
-  on systems under which the `which' program wasn't implemented in the shell.
-  
-  C<File::Which> searches the directories of the user's C<PATH> (as returned by
-  C<File::Spec-E<gt>path()>), looking for executable files having the name
-  specified as a parameter to C<which()>. Under Win32 systems, which do not have a
-  notion of directly executable files, but uses special extensions such as C<.exe>
-  and C<.bat> to identify them, C<File::Which> takes extra steps to assure that
-  you will find the correct file (so for example, you might be searching for
-  C<perl>, it'll try F<perl.exe>, F<perl.bat>, etc.)
-  
-  =head1 Steps Used on Win32, DOS, OS2 and VMS
-  
-  =head2 Windows NT
-  
-  Windows NT has a special environment variable called C<PATHEXT>, which is used
-  by the shell to look for executable files. Usually, it will contain a list in
-  the form C<.EXE;.BAT;.COM;.JS;.VBS> etc. If C<File::Which> finds such an
-  environment variable, it parses the list and uses it as the different
-  extensions.
-  
-  =head2 Windows 9x and other ancient Win/DOS/OS2
-  
-  This set of operating systems don't have the C<PATHEXT> variable, and usually
-  you will find executable files there with the extensions C<.exe>, C<.bat> and
-  (less likely) C<.com>. C<File::Which> uses this hardcoded list if it's running
-  under Win32 but does not find a C<PATHEXT> variable.
-  
-  =head2 VMS
-  
-  Same case as Windows 9x: uses C<.exe> and C<.com> (in that order).
-  
-  =head1 Functions
-  
-  =head2 which($short_exe_name)
-  
-  Exported by default.
-  
-  C<$short_exe_name> is the name used in the shell to call the program (for
-  example, C<perl>).
-  
-  If it finds an executable with the name you specified, C<which()> will return
-  the absolute path leading to this executable (for example, F</usr/bin/perl> or
-  F<C:\Perl\Bin\perl.exe>).
-  
-  If it does I<not> find the executable, it returns C<undef>.
-  
-  If C<which()> is called in list context, it will return I<all> the
-  matches.
-  
-  =head2 where($short_exe_name)
-  
-  Not exported by default.
-  
-  Same as C<which($short_exe_name)> in array context. Same as the
-  C<`where'> utility, will return an array containing all the path names
-  matching C<$short_exe_name>.
-  
-  =head1 BUGS AND CAVEATS
-  
-  Not tested on VMS or MacOS, although there is platform specific code
-  for those. Anyone who haves a second would be very kind to send me a
-  report of how it went.
-  
-  File::Spec adds the current directory to the front of PATH if on
-  Win32, VMS or MacOS. I have no knowledge of those so don't know if the
-  current directory is searced first or not. Could someone please tell
-  me?
-  
-  =head1 SUPPORT
-  
-  Bugs should be reported via the CPAN bug tracker at
-  
-  L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=File-Which>
-  
-  For other issues, contact the maintainer.
-  
-  =head1 AUTHOR
-  
-  Adam Kennedy E<lt>adamk@cpan.orgE<gt>
-  
-  Per Einar Ellefsen E<lt>pereinar@cpan.orgE<gt>
-  
-  Originated in F<modperl-2.0/lib/Apache/Build.pm>. Changed for use in DocSet
-  (for the mod_perl site) and Win32-awareness by me, with slight modifications
-  by Stas Bekman, then extracted to create C<File::Which>.
-  
-  Version 0.04 had some significant platform-related changes, taken from
-  the Perl Power Tools C<`which'> implementation by Abigail with
-  enhancements from Peter Prymmer. See
-  L<http://www.perl.com/language/ppt/src/which/index.html> for more
-  information.
-  
-  =head1 COPYRIGHT
-  
-  Copyright 2002 Per Einar Ellefsen.
-  
-  Some parts copyright 2009 Adam Kennedy.
-  
-  This program is free software; you can redistribute it and/or modify
-  it under the same terms as Perl itself.
-  
-  =head1 SEE ALSO
-  
-  L<File::Spec>, L<which(1)>, Perl Power Tools:
-  L<http://www.perl.com/language/ppt/index.html>.
-  
-  =cut
-FILE_WHICH
-
-$fatpacked{"Path/Class.pm"} = <<'PATH_CLASS';
+$fatpacked{"Path/Class.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH_CLASS';
   use strict;
   
   package Path::Class;
@@ -1298,7 +1607,7 @@ $fatpacked{"Path/Class.pm"} = <<'PATH_CLASS';
   =cut
 PATH_CLASS
 
-$fatpacked{"Path/Class/Dir.pm"} = <<'PATH_CLASS_DIR';
+$fatpacked{"Path/Class/Dir.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH_CLASS_DIR';
   use strict;
   
   package Path::Class::Dir;
@@ -2131,7 +2440,7 @@ $fatpacked{"Path/Class/Dir.pm"} = <<'PATH_CLASS_DIR';
   =cut
 PATH_CLASS_DIR
 
-$fatpacked{"Path/Class/Entity.pm"} = <<'PATH_CLASS_ENTITY';
+$fatpacked{"Path/Class/Entity.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH_CLASS_ENTITY';
   use strict;
   
   package Path::Class::Entity;
@@ -2251,7 +2560,7 @@ $fatpacked{"Path/Class/Entity.pm"} = <<'PATH_CLASS_ENTITY';
   =cut
 PATH_CLASS_ENTITY
 
-$fatpacked{"Path/Class/File.pm"} = <<'PATH_CLASS_FILE';
+$fatpacked{"Path/Class/File.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH_CLASS_FILE';
   use strict;
   
   package Path::Class::File;
@@ -2712,7 +3021,7 @@ $fatpacked{"Path/Class/File.pm"} = <<'PATH_CLASS_FILE';
   =cut
 PATH_CLASS_FILE
 
-$fatpacked{"lib/core/only.pm"} = <<'LIB_CORE_ONLY';
+$fatpacked{"lib/core/only.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'LIB_CORE_ONLY';
   package lib::core::only;
   
   use strict;
@@ -2734,12 +3043,17 @@ $fatpacked{"lib/core/only.pm"} = <<'LIB_CORE_ONLY';
   
   To get only the core directories plus the ones for the local::lib in scope:
   
-    $ perl -Mlib::core::only -Mlocal::lib=~/perl5 myscript.pl
+    $ perl -mlocal::lib -Mlib::core::only -Mlocal::lib=~/perl5 myscript.pl
   
   To attempt to do a self-contained build (but note this will not reliably
   propagate into subprocesses, see the CAVEATS below):
   
-    $ PERL5OPT='-Mlib::core::only -Mlocal::lib=~/perl5' cpan
+    $ PERL5OPT='-mlocal::lib -Mlib::core::only -Mlocal::lib=~/perl5' cpan
+  
+  Please note that it is necessary to use C<local::lib> twice for this to work.
+  First so that C<lib::core::only> doesn't prevent C<local::lib> from loading
+  (it's not currently in core) and then again after C<lib::core::only> so that
+  the local paths are not removed.
   
   =head1 DESCRIPTION
   
@@ -2810,39 +3124,108 @@ $fatpacked{"lib/core/only.pm"} = <<'LIB_CORE_ONLY';
   1;
 LIB_CORE_ONLY
 
-$fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
+$fatpacked{"local/lib.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'LOCAL_LIB';
+  package local::lib;
+  use 5.006;
   use strict;
   use warnings;
-  
-  package local::lib;
-  
-  use 5.008001; # probably works with earlier versions but I'm not supporting them
-                # (patches would, of course, be welcome)
-  
-  use File::Spec ();
-  use File::Path ();
   use Config;
   
-  our $VERSION = '1.008010'; # 1.8.10
+  our $VERSION = '2.000012';
+  $VERSION = eval $VERSION;
   
-  our @KNOWN_FLAGS = qw(--self-contained --deactivate --deactivate-all);
+  BEGIN {
+    *_WIN32 = ($^O eq 'MSWin32' || $^O eq 'NetWare' || $^O eq 'symbian')
+      ? sub(){1} : sub(){0};
+    # punt on these systems
+    *_USE_FSPEC = ($^O eq 'MacOS' || $^O eq 'VMS' || $INC{'File/Spec.pm'})
+      ? sub(){1} : sub(){0};
+  }
+  our $_DIR_JOIN = _WIN32 ? '\\' : '/';
+  our $_DIR_SPLIT = (_WIN32 || $^O eq 'cygwin') ? qr{[\\/]}
+                                                : qr{/};
+  our $_ROOT = _WIN32 ? do {
+    my $UNC = qr{[\\/]{2}[^\\/]+[\\/][^\\/]+};
+    qr{^(?:$UNC|[A-Za-z]:|)$_DIR_SPLIT};
+  } : qr{^/};
+  our $_PERL;
   
-  sub DEACTIVATE_ONE () { 1 }
-  sub DEACTIVATE_ALL () { 2 }
+  sub _cwd {
+    my $drive = shift;
+    if (!$_PERL) {
+      ($_PERL) = $^X =~ /(.+)/; # $^X is internal how could it be tainted?!
+      if (_is_abs($_PERL)) {
+      }
+      elsif (-x $Config{perlpath}) {
+        $_PERL = $Config{perlpath};
+      }
+      else {
+        ($_PERL) =
+          map { /(.*)/ }
+          grep { -x $_ }
+          map { join($_DIR_JOIN, $_, $_PERL) }
+          split /\Q$Config{path_sep}\E/, $ENV{PATH};
+      }
+    }
+    local @ENV{qw(PATH IFS CDPATH ENV BASH_ENV)};
+    my $cmd = $drive ? "eval { Cwd::getdcwd(q($drive)) }"
+                     : 'getcwd';
+    my $cwd = `"$_PERL" -MCwd -le "print $cmd"`;
+    chomp $cwd;
+    if (!length $cwd && $drive) {
+      $cwd = $drive;
+    }
+    $cwd =~ s/$_DIR_SPLIT?$/$_DIR_JOIN/;
+    $cwd;
+  }
   
-  sub INTERPOLATE_ENV () { 1 }
-  sub LITERAL_ENV     () { 0 }
+  sub _catdir {
+    if (_USE_FSPEC) {
+      require File::Spec;
+      File::Spec->catdir(@_);
+    }
+    else {
+      my $dir = join($_DIR_JOIN, @_);
+      $dir =~ s{($_DIR_SPLIT)(?:\.?$_DIR_SPLIT)+}{$1}g;
+      $dir;
+    }
+  }
+  
+  sub _is_abs {
+    if (_USE_FSPEC) {
+      require File::Spec;
+      File::Spec->file_name_is_absolute($_[0]);
+    }
+    else {
+      $_[0] =~ $_ROOT;
+    }
+  }
+  
+  sub _rel2abs {
+    my ($dir, $base) = @_;
+    return $dir
+      if _is_abs($dir);
+  
+    $base = _WIN32 && $dir =~ s/^([A-Za-z]:)// ? _cwd("$1")
+          : $base                              ? $base
+                                               : _cwd;
+    return _catdir($base, $dir);
+  }
   
   sub import {
     my ($class, @args) = @_;
+    push @args, @ARGV
+      if $0 eq '-';
   
-    # Remember what PERL5LIB was when we started
-    my $perl5lib = $ENV{PERL5LIB} || '';
+    my @steps;
+    my %opts;
+    my $shelltype;
   
-    my %arg_store;
-    for my $arg (@args) {
+    while (@args) {
+      my $arg = shift @args;
       # check for lethal dash first to stop processing before causing problems
-      if ($arg =~ /−/) {
+      # the fancy dash is U+2212 or \xE2\x88\x92
+      if ($arg =~ /\xE2\x88\x92/ or $arg =~ /−/) {
         die <<'DEATH';
   WHOA THERE! It looks like you've got some fancy dashes in your commandline!
   These are *not* the traditional -- dashes that software recognizes. You
@@ -2852,38 +3235,448 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   dashes with normal minus signs.
   DEATH
       }
-      elsif(grep { $arg eq $_ } @KNOWN_FLAGS) {
-        (my $flag = $arg) =~ s/--//;
-        $arg_store{$flag} = 1;
+      elsif ($arg eq '--self-contained') {
+        die <<'DEATH';
+  FATAL: The local::lib --self-contained flag has never worked reliably and the
+  original author, Mark Stosberg, was unable or unwilling to maintain it. As
+  such, this flag has been removed from the local::lib codebase in order to
+  prevent misunderstandings and potentially broken builds. The local::lib authors
+  recommend that you look at the lib::core::only module shipped with this
+  distribution in order to create a more robust environment that is equivalent to
+  what --self-contained provided (although quite possibly not what you originally
+  thought it provided due to the poor quality of the documentation, for which we
+  apologise).
+  DEATH
       }
-      elsif($arg =~ /^--/) {
+      elsif( $arg =~ /^--deactivate(?:=(.*))?$/ ) {
+        my $path = defined $1 ? $1 : shift @args;
+        push @steps, ['deactivate', $path];
+      }
+      elsif ( $arg eq '--deactivate-all' ) {
+        push @steps, ['deactivate_all'];
+      }
+      elsif ( $arg =~ /^--shelltype(?:=(.*))?$/ ) {
+        $shelltype = defined $1 ? $1 : shift @args;
+      }
+      elsif ( $arg eq '--no-create' ) {
+        $opts{no_create} = 1;
+      }
+      elsif ( $arg =~ /^--/ ) {
         die "Unknown import argument: $arg";
       }
       else {
-        # assume that what's left is a path
-        $arg_store{path} = $arg;
+        push @steps, ['activate', $arg];
       }
     }
-  
-    if($arg_store{'self-contained'}) {
-      die "FATAL: The local::lib --self-contained flag has never worked reliably and the original author, Mark Stosberg, was unable or unwilling to maintain it. As such, this flag has been removed from the local::lib codebase in order to prevent misunderstandings and potentially broken builds. The local::lib authors recommend that you look at the lib::core::only module shipped with this distribution in order to create a more robust environment that is equivalent to what --self-contained provided (although quite possibly not what you originally thought it provided due to the poor quality of the documentation, for which we apologise).\n";
+    if (!@steps) {
+      push @steps, ['activate', undef];
     }
   
-    my $deactivating = 0;
-    if ($arg_store{deactivate}) {
-      $deactivating = DEACTIVATE_ONE;
-    }
-    if ($arg_store{'deactivate-all'}) {
-      $deactivating = DEACTIVATE_ALL;
+    my $self = $class->new(%opts);
+  
+    for (@steps) {
+      my ($method, @args) = @$_;
+      $self = $self->$method(@args);
     }
   
-    $arg_store{path} = $class->resolve_path($arg_store{path});
-    $class->setup_local_lib_for($arg_store{path}, $deactivating);
-  
-    for (@INC) { # Untaint @INC
-      next if ref; # Skip entry if it is an ARRAY, CODE, blessed, etc.
-      m/(.*)/ and $_ = $1;
+    if ($0 eq '-') {
+      print $self->environment_vars_string($shelltype);
+      exit 0;
     }
+    else {
+      $self->setup_local_lib;
+    }
+  }
+  
+  sub new {
+    my $class = shift;
+    bless {@_}, $class;
+  }
+  
+  sub clone {
+    my $self = shift;
+    bless {%$self, @_}, ref $self;
+  }
+  
+  sub inc { $_[0]->{inc}     ||= \@INC }
+  sub libs { $_[0]->{libs}   ||= [ \'PERL5LIB' ] }
+  sub bins { $_[0]->{bins}   ||= [ \'PATH' ] }
+  sub roots { $_[0]->{roots} ||= [ \'PERL_LOCAL_LIB_ROOT' ] }
+  sub extra { $_[0]->{extra} ||= {} }
+  sub no_create { $_[0]->{no_create} }
+  
+  my $_archname = $Config{archname};
+  my $_version  = $Config{version};
+  my @_inc_version_list = reverse split / /, $Config{inc_version_list};
+  my $_path_sep = $Config{path_sep};
+  
+  sub _as_list {
+    my $list = shift;
+    grep length, map {
+      !(ref $_ && ref $_ eq 'SCALAR') ? $_ : (
+        defined $ENV{$$_} ? split(/\Q$_path_sep/, $ENV{$$_})
+                          : ()
+      )
+    } ref $list ? @$list : $list;
+  }
+  sub _remove_from {
+    my ($list, @remove) = @_;
+    return @$list
+      if !@remove;
+    my %remove = map { $_ => 1 } @remove;
+    grep !$remove{$_}, _as_list($list);
+  }
+  
+  my @_lib_subdirs = (
+    [$_version, $_archname],
+    [$_version],
+    [$_archname],
+    (@_inc_version_list ? \@_inc_version_list : ()),
+    [],
+  );
+  
+  sub install_base_bin_path {
+    my ($class, $path) = @_;
+    return _catdir($path, 'bin');
+  }
+  sub install_base_perl_path {
+    my ($class, $path) = @_;
+    return _catdir($path, 'lib', 'perl5');
+  }
+  sub install_base_arch_path {
+    my ($class, $path) = @_;
+    _catdir($class->install_base_perl_path($path), $_archname);
+  }
+  
+  sub lib_paths_for {
+    my ($class, $path) = @_;
+    my $base = $class->install_base_perl_path($path);
+    return map { _catdir($base, @$_) } @_lib_subdirs;
+  }
+  
+  sub _mm_escape_path {
+    my $path = shift;
+    $path =~ s/\\/\\\\\\\\/g;
+    if ($path =~ s/ /\\ /g) {
+      $path = qq{"\\"$path\\""};
+    }
+    return $path;
+  }
+  
+  sub _mb_escape_path {
+    my $path = shift;
+    $path =~ s/\\/\\\\/g;
+    return qq{"$path"};
+  }
+  
+  sub installer_options_for {
+    my ($class, $path) = @_;
+    return (
+      PERL_MM_OPT =>
+        defined $path ? "INSTALL_BASE="._mm_escape_path($path) : undef,
+      PERL_MB_OPT =>
+        defined $path ? "--install_base "._mb_escape_path($path) : undef,
+    );
+  }
+  
+  sub active_paths {
+    my ($self) = @_;
+    $self = ref $self ? $self : $self->new;
+  
+    return grep {
+      # screen out entries that aren't actually reflected in @INC
+      my $active_ll = $self->install_base_perl_path($_);
+      grep { $_ eq $active_ll } @{$self->inc};
+    } _as_list($self->roots);
+  }
+  
+  
+  sub deactivate {
+    my ($self, $path) = @_;
+    $self = $self->new unless ref $self;
+    $path = $self->resolve_path($path);
+    $path = $self->normalize_path($path);
+  
+    my @active_lls = $self->active_paths;
+  
+    if (!grep { $_ eq $path } @active_lls) {
+      warn "Tried to deactivate inactive local::lib '$path'\n";
+      return $self;
+    }
+  
+    my %args = (
+      bins  => [ _remove_from($self->bins,
+        $self->install_base_bin_path($path)) ],
+      libs  => [ _remove_from($self->libs,
+        $self->install_base_perl_path($path)) ],
+      inc   => [ _remove_from($self->inc,
+        $self->lib_paths_for($path)) ],
+      roots => [ _remove_from($self->roots, $path) ],
+    );
+  
+    $args{extra} = { $self->installer_options_for($args{roots}[0]) };
+  
+    $self->clone(%args);
+  }
+  
+  sub deactivate_all {
+    my ($self) = @_;
+    $self = $self->new unless ref $self;
+  
+    my @active_lls = $self->active_paths;
+  
+    my %args;
+    if (@active_lls) {
+      %args = (
+        bins => [ _remove_from($self->bins,
+          map $self->install_base_bin_path($_), @active_lls) ],
+        libs => [ _remove_from($self->libs,
+          map $self->install_base_perl_path($_), @active_lls) ],
+        inc => [ _remove_from($self->inc,
+          map $self->lib_paths_for($_), @active_lls) ],
+        roots => [ _remove_from($self->roots, @active_lls) ],
+      );
+    }
+  
+    $args{extra} = { $self->installer_options_for(undef) };
+  
+    $self->clone(%args);
+  }
+  
+  sub activate {
+    my ($self, $path) = @_;
+    $self = $self->new unless ref $self;
+    $path = $self->resolve_path($path);
+    $self->ensure_dir_structure_for($path)
+      unless $self->no_create;
+  
+    $path = $self->normalize_path($path);
+  
+    my @active_lls = $self->active_paths;
+  
+    if (grep { $_ eq $path } @active_lls[1 .. $#active_lls]) {
+      $self = $self->deactivate($path);
+    }
+  
+    my %args;
+    if (!@active_lls || $active_lls[0] ne $path) {
+      %args = (
+        bins  => [ $self->install_base_bin_path($path), @{$self->bins} ],
+        libs  => [ $self->install_base_perl_path($path), @{$self->libs} ],
+        inc   => [ $self->lib_paths_for($path), @{$self->inc} ],
+        roots => [ $path, @{$self->roots} ],
+      );
+    }
+  
+    $args{extra} = { $self->installer_options_for($path) };
+  
+    $self->clone(%args);
+  }
+  
+  sub normalize_path {
+    my ($self, $path) = @_;
+    $path = ( Win32::GetShortPathName($path) || $path )
+      if $^O eq 'MSWin32';
+    return $path;
+  }
+  
+  sub build_environment_vars_for {
+    my $self = $_[0]->new->activate($_[1]);
+    $self->build_environment_vars;
+  }
+  sub build_activate_environment_vars_for {
+    my $self = $_[0]->new->activate($_[1]);
+    $self->build_environment_vars;
+  }
+  sub build_deactivate_environment_vars_for {
+    my $self = $_[0]->new->deactivate($_[1]);
+    $self->build_environment_vars;
+  }
+  sub build_deact_all_environment_vars_for {
+    my $self = $_[0]->new->deactivate_all;
+    $self->build_environment_vars;
+  }
+  sub build_environment_vars {
+    my $self = shift;
+    (
+      PATH                => join($_path_sep, _as_list($self->bins)),
+      PERL5LIB            => join($_path_sep, _as_list($self->libs)),
+      PERL_LOCAL_LIB_ROOT => join($_path_sep, _as_list($self->roots)),
+      %{$self->extra},
+    );
+  }
+  
+  sub setup_local_lib_for {
+    my $self = $_[0]->new->activate($_[1]);
+    $self->setup_local_lib;
+  }
+  
+  sub setup_local_lib {
+    my $self = shift;
+  
+    # if Carp is already loaded, ensure Carp::Heavy is also loaded, to avoid
+    # $VERSION mismatch errors (Carp::Heavy loads Carp, so we do not need to
+    # check in the other direction)
+    require Carp::Heavy if $INC{'Carp.pm'};
+  
+    $self->setup_env_hash;
+    @INC = @{$self->inc};
+  }
+  
+  sub setup_env_hash_for {
+    my $self = $_[0]->new->activate($_[1]);
+    $self->setup_env_hash;
+  }
+  sub setup_env_hash {
+    my $self = shift;
+    my %env = $self->build_environment_vars;
+    for my $key (keys %env) {
+      if (defined $env{$key}) {
+        $ENV{$key} = $env{$key};
+      }
+      else {
+        delete $ENV{$key};
+      }
+    }
+  }
+  
+  sub print_environment_vars_for {
+    print $_[0]->environment_vars_string_for(@_[1..$#_]);
+  }
+  
+  sub environment_vars_string_for {
+    my $self = $_[0]->new->activate($_[1]);
+    $self->environment_vars_string;
+  }
+  sub environment_vars_string {
+    my ($self, $shelltype) = @_;
+  
+    $shelltype ||= $self->guess_shelltype;
+  
+    my $build_method = "build_${shelltype}_env_declaration";
+  
+    my $extra = $self->extra;
+    my @envs = (
+      PATH                => $self->bins,
+      PERL5LIB            => $self->libs,
+      PERL_LOCAL_LIB_ROOT => $self->roots,
+      map { $_ => $extra->{$_} } sort keys %$extra,
+    );
+    my $out = '';
+    while (@envs) {
+      my ($name, $value) = (shift(@envs), shift(@envs));
+      if (
+          ref $value
+          && @$value == 1
+          && ref $value->[0]
+          && ref $value->[0] eq 'SCALAR'
+          && ${$value->[0]} eq $name) {
+        next;
+      }
+      $out .= $self->$build_method($name, $value);
+    }
+    my $wrap_method = "wrap_${shelltype}_output";
+    if ($self->can($wrap_method)) {
+      return $self->$wrap_method($out);
+    }
+    return $out;
+  }
+  
+  sub build_bourne_env_declaration {
+    my ($class, $name, $args) = @_;
+    my $value = $class->_interpolate($args, '$%s', '"', '\\%s');
+  
+    if (!defined $value) {
+      return qq{unset $name;\n};
+    }
+  
+    $value =~ s/(^|\G|$_path_sep)\$$name$_path_sep/$1\$$name\${$name+$_path_sep}/g;
+    $value =~ s/$_path_sep\$$name$/\${$name+$_path_sep}\$$name/;
+  
+    qq{${name}="$value"; export ${name};\n}
+  }
+  
+  sub build_csh_env_declaration {
+    my ($class, $name, $args) = @_;
+    my ($value, @vars) = $class->_interpolate($args, '$%s', '"', '"\\%s"');
+    if (!defined $value) {
+      return qq{unsetenv $name;\n};
+    }
+  
+    my $out = '';
+    for my $var (@vars) {
+      $out .= qq{if ! \$?$name setenv $name '';\n};
+    }
+  
+    my $value_without = $value;
+    if ($value_without =~ s/(?:^|$_path_sep)\$$name(?:$_path_sep|$)//g) {
+      $out .= qq{if "\$$name" != '' setenv $name "$value";\n};
+      $out .= qq{if "\$$name" == '' };
+    }
+    $out .= qq{setenv $name "$value_without";\n};
+    return $out;
+  }
+  
+  sub build_cmd_env_declaration {
+    my ($class, $name, $args) = @_;
+    my $value = $class->_interpolate($args, '%%%s%%', qr([()!^"<>&|]), '^%s');
+    if (!$value) {
+      return qq{\@set $name=\n};
+    }
+  
+    my $out = '';
+    my $value_without = $value;
+    if ($value_without =~ s/(?:^|$_path_sep)%$name%(?:$_path_sep|$)//g) {
+      $out .= qq{\@if not "%$name%"=="" set $name=$value\n};
+      $out .= qq{\@if "%$name%"=="" };
+    }
+    $out .= qq{\@set $name=$value_without\n};
+    return $out;
+  }
+  
+  sub build_powershell_env_declaration {
+    my ($class, $name, $args) = @_;
+    my $value = $class->_interpolate($args, '$env:%s', '"', '`%s');
+  
+    if (!$value) {
+      return qq{Remove-Item -ErrorAction 0 Env:\\$name;\n};
+    }
+  
+    my $maybe_path_sep = qq{\$(if("\$env:$name"-eq""){""}else{"$_path_sep"})};
+    $value =~ s/(^|\G|$_path_sep)\$env:$name$_path_sep/$1\$env:$name"+$maybe_path_sep+"/g;
+    $value =~ s/$_path_sep\$env:$name$/"+$maybe_path_sep+\$env:$name+"/;
+  
+    qq{\$env:$name = \$("$value");\n};
+  }
+  sub wrap_powershell_output {
+    my ($class, $out) = @_;
+    return $out || " \n";
+  }
+  
+  sub build_fish_env_declaration {
+    my ($class, $name, $args) = @_;
+    my $value = $class->_interpolate($args, '$%s', qr/[" ]/, '\\%s');
+    if (!defined $value) {
+      return qq{set -e $name;\n};
+    }
+    $value =~ s/$_path_sep/ /g;
+    qq{set -x $name $value;\n};
+  }
+  
+  sub _interpolate {
+    my ($class, $args, $var_pat, $escape, $escape_pat) = @_;
+    return
+      unless defined $args;
+    my @args = ref $args ? @$args : $args;
+    return
+      unless @args;
+    my @vars = map { $$_ } grep { ref $_ eq 'SCALAR' } @args;
+    my $string = join $_path_sep, map {
+      ref $_ eq 'SCALAR' ? sprintf($var_pat, $$_) : do {
+        s/($escape)/sprintf($escape_pat, $1)/ge; $_;
+      };
+    } @args;
+    return wantarray ? ($string, \@vars) : $string;
   }
   
   sub pipeline;
@@ -2905,32 +3698,16 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     }
   }
   
-  =begin testing
-  
-  #:: test pipeline
-  
-  package local::lib;
-  
-  { package Foo; sub foo { -$_[1] } sub bar { $_[1]+2 } sub baz { $_[1]+3 } }
-  my $foo = bless({}, 'Foo');                                                 
-  Test::More::ok($foo->${pipeline qw(foo bar baz)}(10) == -15);
-  
-  =end testing
-  
-  =cut
-  
-  sub _uniq {
-      my %seen;
-      grep { ! $seen{$_}++ } @_;
-  }
-  
   sub resolve_path {
     my ($class, $path) = @_;
-    $class->${pipeline qw(
+  
+    $path = $class->${pipeline qw(
       resolve_relative_path
       resolve_home_path
       resolve_empty_path
     )}($path);
+  
+    $path;
   }
   
   sub resolve_empty_path {
@@ -2942,56 +3719,24 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     }
   }
   
-  =begin testing
-  
-  #:: test classmethod setup
-  
-  my $c = 'local::lib';
-  
-  =end testing
-  
-  =begin testing
-  
-  #:: test classmethod
-  
-  is($c->resolve_empty_path, '~/perl5');
-  is($c->resolve_empty_path('foo'), 'foo');
-  
-  =end testing
-  
-  =cut
-  
   sub resolve_home_path {
     my ($class, $path) = @_;
-    return $path unless ($path =~ /^~/);
-    my ($user) = ($path =~ /^~([^\/]+)/); # can assume ^~ so undef for 'us'
-    my $tried_file_homedir;
+    $path =~ /^~([^\/]*)/ or return $path;
+    my $user = $1;
     my $homedir = do {
-      if (eval { require File::HomeDir } && $File::HomeDir::VERSION >= 0.65) {
-        $tried_file_homedir = 1;
-        if (defined $user) {
-          File::HomeDir->users_home($user);
-        } else {
-          File::HomeDir->my_home;
-        }
-      } else {
-        if (defined $user) {
-          (getpwnam $user)[7];
-        } else {
-          if (defined $ENV{HOME}) {
-            $ENV{HOME};
-          } else {
-            (getpwuid $<)[7];
-          }
-        }
+      if (! length($user) && defined $ENV{HOME}) {
+        $ENV{HOME};
+      }
+      else {
+        require File::Glob;
+        File::Glob::bsd_glob("~$user", File::Glob::GLOB_TILDE());
       }
     };
     unless (defined $homedir) {
-      require Carp;
+      require Carp; require Carp::Heavy;
       Carp::croak(
         "Couldn't resolve homedir for "
         .(defined $user ? $user : 'current user')
-        .($tried_file_homedir ? '' : ' - consider installing File::HomeDir')
       );
     }
     $path =~ s/^~[^\/]*/$homedir/;
@@ -3000,78 +3745,7 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
   sub resolve_relative_path {
     my ($class, $path) = @_;
-    $path = File::Spec->rel2abs($path);
-  }
-  
-  =begin testing
-  
-  #:: test classmethod
-  
-  local *File::Spec::rel2abs = sub { shift; 'FOO'.shift; };
-  is($c->resolve_relative_path('bar'),'FOObar');
-  
-  =end testing
-  
-  =cut
-  
-  sub setup_local_lib_for {
-    my ($class, $path, $deactivating) = @_;
-  
-    my $interpolate = LITERAL_ENV;
-    my @active_lls = $class->active_paths;
-  
-    $class->ensure_dir_structure_for($path);
-  
-    # On Win32 directories often contain spaces. But some parts of the CPAN
-    # toolchain don't like that. To avoid this, GetShortPathName() gives us
-    # an alternate representation that has none.
-    # This only works if the directory already exists.
-    $path = Win32::GetShortPathName($path) if $^O eq 'MSWin32';
-  
-    if (! $deactivating) {
-      if (@active_lls && $active_lls[-1] eq $path) {
-        exit 0 if $0 eq '-';
-        return; # Asked to add what's already at the top of the stack
-      } elsif (grep { $_ eq $path} @active_lls) {
-        # Asked to add a dir that's lower in the stack -- so we remove it from
-        # where it is, and then add it back at the top.
-        $class->setup_env_hash_for($path, DEACTIVATE_ONE);
-        # Which means we can no longer output "PERL5LIB=...:$PERL5LIB" stuff
-        # anymore because we're taking something *out*.
-        $interpolate = INTERPOLATE_ENV;
-      }
-    }
-  
-    if ($0 eq '-') {
-      $class->print_environment_vars_for($path, $deactivating, $interpolate);
-      exit 0;
-    } else {
-      $class->setup_env_hash_for($path, $deactivating);
-      my $arch_dir = $Config{archname};
-      @INC = _uniq(
-    (
-        # Inject $path/$archname for each path in PERL5LIB
-        map { ( File::Spec->catdir($_, $arch_dir), $_ ) }
-        split($Config{path_sep}, $ENV{PERL5LIB})
-    ),
-    @INC
-      );
-    }
-  }
-  
-  sub install_base_bin_path {
-    my ($class, $path) = @_;
-    File::Spec->catdir($path, 'bin');
-  }
-  
-  sub install_base_perl_path {
-    my ($class, $path) = @_;
-    File::Spec->catdir($path, 'lib', 'perl5');
-  }
-  
-  sub install_base_arch_path {
-    my ($class, $path) = @_;
-    File::Spec->catdir($class->install_base_perl_path($path), $Config{archname});
+    _rel2abs($path);
   }
   
   sub ensure_dir_structure_for {
@@ -3079,287 +3753,42 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     unless (-d $path) {
       warn "Attempting to create directory ${path}\n";
     }
-    File::Path::mkpath($path);
-    return
+    require File::Basename;
+    my @dirs;
+    while(!-d $path) {
+      push @dirs, $path;
+      $path = File::Basename::dirname($path);
+    }
+    mkdir $_ for reverse @dirs;
+    return;
   }
   
   sub guess_shelltype {
-    my $shellbin = 'sh';
-    if(defined $ENV{'SHELL'}) {
-        my @shell_bin_path_parts = File::Spec->splitpath($ENV{'SHELL'});
-        $shellbin = $shell_bin_path_parts[-1];
-    }
-    my $shelltype = do {
-        local $_ = $shellbin;
-        if(/csh/) {
-            'csh'
-        } else {
-            'bourne'
-        }
-    };
+    my $shellbin
+      = defined $ENV{SHELL}
+        ? ($ENV{SHELL} =~ /([\w.]+)$/)[-1]
+      : ( $^O eq 'MSWin32' && exists $ENV{'!EXITCODE'} )
+        ? 'bash'
+      : ( $^O eq 'MSWin32' && $ENV{PROMPT} && $ENV{COMSPEC} )
+        ? ($ENV{COMSPEC} =~ /([\w.]+)$/)[-1]
+      : ( $^O eq 'MSWin32' && !$ENV{PROMPT} )
+        ? 'powershell.exe'
+      : 'sh';
   
-    # Both Win32 and Cygwin have $ENV{COMSPEC} set.
-    if (defined $ENV{'COMSPEC'} && $^O ne 'cygwin') {
-        my @shell_bin_path_parts = File::Spec->splitpath($ENV{'COMSPEC'});
-        $shellbin = $shell_bin_path_parts[-1];
-           $shelltype = do {
-                   local $_ = $shellbin;
-                   if(/command\.com/) {
-                           'win32'
-                   } elsif(/cmd\.exe/) {
-                           'win32'
-                   } elsif(/4nt\.exe/) {
-                           'win32'
-                   } else {
-                           $shelltype
-                   }
-           };
-    }
-    return $shelltype;
-  }
-  
-  sub print_environment_vars_for {
-    my ($class, $path, $deactivating, $interpolate) = @_;
-    print $class->environment_vars_string_for($path, $deactivating, $interpolate);
-  }
-  
-  sub environment_vars_string_for {
-    my ($class, $path, $deactivating, $interpolate) = @_;
-    my @envs = $class->build_environment_vars_for($path, $deactivating, $interpolate);
-    my $out = '';
-  
-    # rather basic csh detection, goes on the assumption that something won't
-    # call itself csh unless it really is. also, default to bourne in the
-    # pathological situation where a user doesn't have $ENV{SHELL} defined.
-    # note also that shells with funny names, like zoid, are assumed to be
-    # bourne.
-  
-    my $shelltype = $class->guess_shelltype;
-  
-    while (@envs) {
-      my ($name, $value) = (shift(@envs), shift(@envs));
-      $value =~ s/(\\")/\\$1/g if defined $value;
-      $out .= $class->${\"build_${shelltype}_env_declaration"}($name, $value);
-    }
-    return $out;
-  }
-  
-  # simple routines that take two arguments: an %ENV key and a value. return
-  # strings that are suitable for passing directly to the relevant shell to set
-  # said key to said value.
-  sub build_bourne_env_declaration {
-    my $class = shift;
-    my($name, $value) = @_;
-    return defined($value) ? qq{export ${name}="${value}";\n} : qq{unset ${name};\n};
-  }
-  
-  sub build_csh_env_declaration {
-    my $class = shift;
-    my($name, $value) = @_;
-    return defined($value) ? qq{setenv ${name} "${value}"\n} : qq{unsetenv ${name}\n};
-  }
-  
-  sub build_win32_env_declaration {
-    my $class = shift;
-    my($name, $value) = @_;
-    return defined($value) ? qq{set ${name}=${value}\n} : qq{set ${name}=\n};
-  }
-  
-  sub setup_env_hash_for {
-    my ($class, $path, $deactivating) = @_;
-    my %envs = $class->build_environment_vars_for($path, $deactivating, INTERPOLATE_ENV);
-    @ENV{keys %envs} = values %envs;
-  }
-  
-  sub build_environment_vars_for {
-    my ($class, $path, $deactivating, $interpolate) = @_;
-  
-    if ($deactivating == DEACTIVATE_ONE) {
-      return $class->build_deactivate_environment_vars_for($path, $interpolate);
-    } elsif ($deactivating == DEACTIVATE_ALL) {
-      return $class->build_deact_all_environment_vars_for($path, $interpolate);
-    } else {
-      return $class->build_activate_environment_vars_for($path, $interpolate);
+    for ($shellbin) {
+      return
+          /csh$/                   ? 'csh'
+        : /fish/                   ? 'fish'
+        : /command(?:\.com)?$/i    ? 'cmd'
+        : /cmd(?:\.exe)?$/i        ? 'cmd'
+        : /4nt(?:\.exe)?$/i        ? 'cmd'
+        : /powershell(?:\.exe)?$/i ? 'powershell'
+                                   : 'bourne';
     }
   }
   
-  # Build an environment value for a variable like PATH from a list of paths.
-  # References to existing variables are given as references to the variable name.
-  # Duplicates are removed.
-  #
-  # options:
-  # - interpolate: INTERPOLATE_ENV/LITERAL_ENV
-  # - exists: paths are included only if they exist (default: interpolate == INTERPOLATE_ENV)
-  # - filter: function to apply to each path do decide if it must be included
-  # - empty: the value to return in the case of empty value
-  my %ENV_LIST_VALUE_DEFAULTS = (
-      interpolate => INTERPOLATE_ENV,
-      exists => undef,
-      filter => sub { 1 },
-      empty => undef,
-  );
-  sub _env_list_value {
-    my $options = shift;
-    die(sprintf "unknown option '$_' at %s line %u\n", (caller)[1..2])
-      for grep { !exists $ENV_LIST_VALUE_DEFAULTS{$_} } keys %$options;
-    my %options = (%ENV_LIST_VALUE_DEFAULTS, %{ $options });
-    $options{exists} = $options{interpolate} == INTERPOLATE_ENV
-      unless defined $options{exists};
-  
-    my %seen;
-  
-    my $value = join($Config{path_sep}, map {
-        ref $_ ? ($^O eq 'MSWin32' ? "%${$_}%" : "\$${$_}") : $_
-      } grep {
-        ref $_ || (defined $_
-                   && length($_) > 0
-                   && !$seen{$_}++
-                   && $options{filter}->($_)
-                   && (!$options{exists} || -e $_))
-      } map {
-        if (ref $_ eq 'SCALAR' && $options{interpolate} == INTERPOLATE_ENV) {
-          defined $ENV{${$_}} ? (split /\Q$Config{path_sep}/, $ENV{${$_}}) : ()
-        } else {
-          $_
-        }
-      } @_);
-    return length($value) ? $value : $options{empty};
-  }
-  
-  sub build_activate_environment_vars_for {
-    my ($class, $path, $interpolate) = @_;
-    return (
-      PERL_LOCAL_LIB_ROOT =>
-              _env_list_value(
-                { interpolate => $interpolate, exists => 0, empty => '' },
-                \'PERL_LOCAL_LIB_ROOT',
-                $path,
-              ),
-      PERL_MB_OPT => "--install_base ${path}",
-      PERL_MM_OPT => "INSTALL_BASE=${path}",
-      PERL5LIB =>
-              _env_list_value(
-                { interpolate => $interpolate, exists => 0, empty => '' },
-                $class->install_base_perl_path($path),
-                \'PERL5LIB',
-              ),
-      PATH => _env_list_value(
-                { interpolate => $interpolate, exists => 0, empty => '' },
-          $class->install_base_bin_path($path),
-                \'PATH',
-              ),
-    )
-  }
-  
-  sub active_paths {
-    my ($class) = @_;
-  
-    return () unless defined $ENV{PERL_LOCAL_LIB_ROOT};
-    return grep { $_ ne '' } split /\Q$Config{path_sep}/, $ENV{PERL_LOCAL_LIB_ROOT};
-  }
-  
-  sub build_deactivate_environment_vars_for {
-    my ($class, $path, $interpolate) = @_;
-  
-    my @active_lls = $class->active_paths;
-  
-    if (!grep { $_ eq $path } @active_lls) {
-      warn "Tried to deactivate inactive local::lib '$path'\n";
-      return ();
-    }
-  
-    my $perl_path = $class->install_base_perl_path($path);
-    my $arch_path = $class->install_base_arch_path($path);
-    my $bin_path = $class->install_base_bin_path($path);
-  
-  
-    my %env = (
-      PERL_LOCAL_LIB_ROOT => _env_list_value(
-        {
-          exists => 0,
-        },
-        grep { $_ ne $path } @active_lls
-      ),
-      PERL5LIB => _env_list_value(
-        {
-          exists => 0,
-          filter => sub {
-            $_ ne $perl_path && $_ ne $arch_path
-          },
-        },
-        \'PERL5LIB',
-      ),
-      PATH => _env_list_value(
-        {
-          exists => 0,
-          filter => sub { $_ ne $bin_path },
-        },
-        \'PATH',
-      ),
-    );
-  
-    # If removing ourselves from the "top of the stack", set install paths to
-    # correspond with the new top of stack.
-    if ($active_lls[-1] eq $path) {
-      my $new_top = $active_lls[-2];
-      $env{PERL_MB_OPT} = defined($new_top) ? "--install_base ${new_top}" : undef;
-      $env{PERL_MM_OPT} = defined($new_top) ? "INSTALL_BASE=${new_top}" : undef;
-    }
-  
-    return %env;
-  }
-  
-  sub build_deact_all_environment_vars_for {
-    my ($class, $path, $interpolate) = @_;
-  
-    my @active_lls = $class->active_paths;
-  
-    my %perl_paths = map { (
-        $class->install_base_perl_path($_) => 1,
-        $class->install_base_arch_path($_) => 1
-      ) } @active_lls;
-    my %bin_paths = map { (
-        $class->install_base_bin_path($_) => 1,
-      ) } @active_lls;
-  
-    my %env = (
-      PERL_LOCAL_LIB_ROOT => undef,
-      PERL_MM_OPT => undef,
-      PERL_MB_OPT => undef,
-      PERL5LIB => _env_list_value(
-        {
-          exists => 0,
-          filter => sub {
-            ! scalar grep { exists $perl_paths{$_} } $_[0]
-          },
-        },
-        \'PERL5LIB'
-      ),
-      PATH => _env_list_value(
-        {
-          exists => 0,
-          filter => sub {
-            ! scalar grep { exists $bin_paths{$_} } $_[0]
-          },
-        },
-        \'PATH'
-      ),
-    );
-  
-    return %env;
-  }
-  
-  =begin testing
-  
-  #:: test classmethod
-  
-  File::Path::rmtree('t/var/splat');
-  
-  $c->ensure_dir_structure_for('t/var/splat');
-  
-  ok(-d 't/var/splat');
-  
-  =end testing
+  1;
+  __END__
   
   =encoding utf8
   
@@ -3386,19 +3815,24 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
     # Just print out useful shell commands
     $ perl -Mlocal::lib
-    export PERL_MB_OPT='--install_base /home/username/perl5'
-    export PERL_MM_OPT='INSTALL_BASE=/home/username/perl5'
-    export PERL5LIB='/home/username/perl5/lib/perl5/i386-linux:/home/username/perl5/lib/perl5'
-    export PATH="/home/username/perl5/bin:$PATH"
+    PERL_MB_OPT='--install_base /home/username/perl5'; export PERL_MB_OPT;
+    PERL_MM_OPT='INSTALL_BASE=/home/username/perl5'; export PERL_MM_OPT;
+    PERL5LIB="/home/username/perl5/lib/perl5"; export PERL5LIB;
+    PATH="/home/username/perl5/bin:$PATH"; export PATH;
+    PERL_LOCAL_LIB_ROOT="/home/usename/perl5:$PERL_LOCAL_LIB_ROOT"; export PERL_LOCAL_LIB_ROOT;
+  
+  From a .bashrc file -
+  
+    [ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"
   
   =head2 The bootstrapping technique
   
   A typical way to install local::lib is using what is known as the
   "bootstrapping" technique.  You would do this if your system administrator
   hasn't already installed local::lib.  In this case, you'll need to install
-  local::lib in your home directory. 
+  local::lib in your home directory.
   
-  If you do have administrative privileges, you will still want to set up your 
+  Even if you do have administrative privileges, you will still want to set up your
   environment variables, as discussed in step 4. Without this, you would still
   install the modules into the system CPAN installation and also your Perl scripts
   will not use the lib/ path you bootstrapped with local::lib.
@@ -3407,12 +3841,18 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
   Windows users must also see L</Differences when using this module under Win32>.
   
-  1. Download and unpack the local::lib tarball from CPAN (search for "Download"
+  =over 4
+  
+  =item 1.
+  
+  Download and unpack the local::lib tarball from CPAN (search for "Download"
   on the CPAN page about local::lib).  Do this as an ordinary user, not as root
   or administrator.  Unpack the file in your home directory or in any other
   convenient location.
   
-  2. Run this:
+  =item 2.
+  
+  Run this:
   
     perl Makefile.PL --bootstrap
   
@@ -3424,32 +3864,39 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
     perl Makefile.PL --bootstrap=~/foo
   
-  3. Run this: (local::lib assumes you have make installed on your system)
+  =item 3.
+  
+  Run this: (local::lib assumes you have make installed on your system)
   
     make test && make install
   
-  4. Now we need to setup the appropriate environment variables, so that Perl 
+  =item 4.
+  
+  Now we need to setup the appropriate environment variables, so that Perl
   starts using our newly generated lib/ directory. If you are using bash or
   any other Bourne shells, you can add this to your shell startup script this
   way:
   
-    echo 'eval $(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)' >>~/.bashrc
+    echo '[ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"' >>~/.bashrc
   
   If you are using C shell, you can do this as follows:
   
     /bin/csh
     echo $SHELL
     /bin/csh
-    perl -I$HOME/perl5/lib/perl5 -Mlocal::lib >> ~/.cshrc
+    echo 'eval `perl -I$HOME/perl5/lib/perl5 -Mlocal::lib`' >> ~/.cshrc
   
-  If you passed to bootstrap a directory other than default, you also need to give that as 
-  import parameter to the call of the local::lib module like this way:
+  If you passed to bootstrap a directory other than default, you also need to
+  give that as import parameter to the call of the local::lib module like this
+  way:
   
-    echo 'eval $(perl -I$HOME/foo/lib/perl5 -Mlocal::lib=$HOME/foo)' >>~/.bashrc
+    echo '[ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/foo/lib/perl5 -Mlocal::lib=$HOME/foo)"' >>~/.bashrc
   
   After writing your shell configuration file, be sure to re-read it to get the
-  changed settings into your current shell's environment. Bourne shells use 
+  changed settings into your current shell's environment. Bourne shells use
   C<. ~/.bashrc> for this, whereas C shells use C<source ~/.cshrc>.
+  
+  =back
   
   If you're on a slower machine, or are operating under draconian disk space
   limitations, you can disable the automatic generation of manpages from POD when
@@ -3457,9 +3904,9 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
     perl Makefile.PL --bootstrap --no-manpages
   
-  To avoid doing several bootstrap for several Perl module environments on the 
-  same account, for example if you use it for several different deployed 
-  applications independently, you can use one bootstrapped local::lib 
+  To avoid doing several bootstrap for several Perl module environments on the
+  same account, for example if you use it for several different deployed
+  applications independently, you can use one bootstrapped local::lib
   installation to install modules in different directories directly this way:
   
     cd ~/mydir1
@@ -3469,6 +3916,12 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     perl -MCPAN -e install ...    ### whatever modules you want
     cd ../mydir2
     ... REPEAT ...
+  
+  When used in a C<.bashrc> file, it is recommended that you protect against
+  re-activating a directory in a sub-shell.  This can be done by checking the
+  C<$SHLVL> variable as shown in synopsis.  Without this, sub-shells created by
+  the user or other programs will override changes made to the parent shell's
+  environment.
   
   If you are working with several C<local::lib> environments, you may want to
   remove some of them from the current environment without disturbing the others.
@@ -3510,14 +3963,14 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
     C:\>perl -Mlocal::lib
     set PERL_MB_OPT=--install_base C:\DOCUME~1\ADMINI~1\perl5
     set PERL_MM_OPT=INSTALL_BASE=C:\DOCUME~1\ADMINI~1\perl5
-    set PERL5LIB=C:\DOCUME~1\ADMINI~1\perl5\lib\perl5;C:\DOCUME~1\ADMINI~1\perl5\lib\perl5\MSWin32-x86-multi-thread
+    set PERL5LIB=C:\DOCUME~1\ADMINI~1\perl5\lib\perl5
     set PATH=C:\DOCUME~1\ADMINI~1\perl5\bin;%PATH%
-    
+  
     ### To set the environment for this shell alone
     C:\>perl -Mlocal::lib > %TEMP%\tmp.bat && %TEMP%\tmp.bat && del %TEMP%\tmp.bat
     ### instead of $(perl -Mlocal::lib=./)
   
-  If you want the environment entries to persist, you'll need to add then to the
+  If you want the environment entries to persist, you'll need to add them to the
   Control Panel's System applet yourself or use L<App::local::lib::Win32Helper>.
   
   The "~" is translated to the user's profile directory (the directory named for
@@ -3525,6 +3978,13 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   (Windows Vista or later)) unless $ENV{HOME} exists. After that, the home
   directory is translated to a short name (which means the directory must exist)
   and the subdirectories are created.
+  
+  =head3 PowerShell
+  
+  local::lib also supports PowerShell, and can be used with the
+  C<Invoke-Expression> cmdlet.
+  
+    Invoke-Expression "$(perl -Mlocal::lib)"
   
   =head1 RATIONALE
   
@@ -3546,7 +4006,7 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   If you are using a package management system (such as Debian), you don't need to
   worry about Debian and CPAN stepping on each other's toes.  Your local version
   of the packages will be written to an entirely separate directory from those
-  installed by Debian.  
+  installed by Debian.
   
   =head1 DESCRIPTION
   
@@ -3576,9 +4036,11 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
   =item PATH
   
-  PATH is appended to, rather than clobbered.
+  =item PERL_LOCAL_LIB_ROOT
   
   =back
+  
+  When possible, these will be appended to instead of overwritten entirely.
   
   These values are then available for reference by any code after import.
   
@@ -3588,7 +4050,7 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   there are a number of caveats, and the best approach is always to perform a
   build against a clean perl (i.e. site and vendor as close to empty as possible).
   
-  =head1 OPTIONS
+  =head1 IMPORT OPTIONS
   
   Options are values that can be passed to the C<local::lib> import besides the
   directory to use. They are specified as C<use local::lib '--option'[, path];>
@@ -3604,7 +4066,18 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   Remove all directories that were added to search paths by C<local::lib> from the
   search paths.
   
-  =head1 METHODS
+  =head2 --shelltype
+  
+  Specify the shell type to use for output.  By default, the shell will be
+  detected based on the environment.  Should be one of: C<bourne>, C<csh>,
+  C<cmd>, or C<powershell>.
+  
+  =head2 --no-create
+  
+  Prevents C<local::lib> from creating directories when activating dirs.  This is
+  likely to cause issues on Win32 systems.
+  
+  =head1 CLASS METHODS
   
   =head2 ensure_dir_structure_for
   
@@ -3636,9 +4109,9 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
   =over 4
   
-  =item Arguments: $path, $interpolate
+  =item Arguments: $path
   
-  =item Return value: \%environment_vars
+  =item Return value: %environment_vars
   
   =back
   
@@ -3669,7 +4142,8 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   =back
   
   Returns a list of active C<local::lib> paths, according to the
-  C<PERL_LOCAL_LIB_ROOT> environment variable.
+  C<PERL_LOCAL_LIB_ROOT> environment variable and verified against
+  what is really in C<@INC>.
   
   =head2 install_base_perl_path
   
@@ -3685,20 +4159,19 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   library installation. Appends the directories C<lib> and C<perl5> to the given
   path.
   
-  =head2 install_base_arch_path
+  =head2 lib_paths_for
   
   =over 4
   
   =item Arguments: $path
   
-  =item Return value: $install_base_arch_path
+  =item Return value: @lib_paths
   
   =back
   
-  Returns a path describing where to install the architecture-specific Perl
-  modules for this local library installation. Based on the
-  L</install_base_perl_path> method's return value, and appends the value of
-  C<$Config{archname}>.
+  Returns the list of paths perl will search for libraries, given a base path.
+  This includes the base path itself, the architecture specific subdirectory, and
+  perl version specific subdirectories.  These paths may not all exist.
   
   =head2 install_base_bin_path
   
@@ -3711,8 +4184,20 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   =back
   
   Returns a path describing where to install the executable programs for this
-  local library installation. Based on the L</install_base_perl_path> method's
-  return value, and appends the directory C<bin>.
+  local library installation. Appends the directory C<bin> to the given path.
+  
+  =head2 installer_options_for
+  
+  =over 4
+  
+  =item Arguments: $path
+  
+  =item Return value: %installer_env_vars
+  
+  =back
+  
+  Returns a hash of environment variables that should be set to cause
+  installation into the given path.
   
   =head2 resolve_empty_path
   
@@ -3771,6 +4256,141 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   L</resolve_relative_path>. The result of this final call is returned from
   L</resolve_path>.
   
+  =head1 OBJECT INTERFACE
+  
+  =head2 new
+  
+  =over 4
+  
+  =item Arguments: %attributes
+  
+  =item Return value: $local_lib
+  
+  =back
+  
+  Constructs a new C<local::lib> object, representing the current state of
+  C<@INC> and the relevant environment variables.
+  
+  =head1 ATTRIBUTES
+  
+  =head2 roots
+  
+  An arrayref representing active C<local::lib> directories.
+  
+  =head2 inc
+  
+  An arrayref representing C<@INC>.
+  
+  =head2 libs
+  
+  An arrayref representing the PERL5LIB environment variable.
+  
+  =head2 bins
+  
+  An arrayref representing the PATH environment variable.
+  
+  =head2 extra
+  
+  A hashref of extra environment variables (e.g. C<PERL_MM_OPT> and
+  C<PERL_MB_OPT>)
+  
+  =head2 no_create
+  
+  If set, C<local::lib> will not try to create directories when activating them.
+  
+  =head1 OBJECT METHODS
+  
+  =head2 clone
+  
+  =over 4
+  
+  =item Arguments: %attributes
+  
+  =item Return value: $local_lib
+  
+  =back
+  
+  Constructs a new C<local::lib> object based on the existing one, overriding the
+  specified attributes.
+  
+  =head2 activate
+  
+  =over 4
+  
+  =item Arguments: $path
+  
+  =item Return value: $new_local_lib
+  
+  =back
+  
+  Constructs a new instance with the specified path active.
+  
+  =head2 deactivate
+  
+  =over 4
+  
+  =item Arguments: $path
+  
+  =item Return value: $new_local_lib
+  
+  =back
+  
+  Constructs a new instance with the specified path deactivated.
+  
+  =head2 deactivate_all
+  
+  =over 4
+  
+  =item Arguments: None
+  
+  =item Return value: $new_local_lib
+  
+  =back
+  
+  Constructs a new instance with all C<local::lib> directories deactivated.
+  
+  =head2 environment_vars_string
+  
+  =over 4
+  
+  =item Arguments: [ $shelltype ]
+  
+  =item Return value: $shell_env_string
+  
+  =back
+  
+  Returns a string to set up the C<local::lib>, meant to be run by a shell.
+  
+  =head2 build_environment_vars
+  
+  =over 4
+  
+  =item Arguments: None
+  
+  =item Return value: %environment_vars
+  
+  =back
+  
+  Returns a hash with the variables listed above, properly set to use the
+  given path as the base directory.
+  
+  =head2 setup_env_hash
+  
+  =over 4
+  
+  =item Arguments: None
+  
+  =item Return value: None
+  
+  =back
+  
+  Constructs the C<%ENV> keys for the given path, by calling
+  L</build_environment_vars>.
+  
+  =head2 setup_local_lib
+  
+  Constructs the C<%ENV> hash using L</setup_env_hash>, and set up C<@INC>.
+  
   =head1 A WARNING ABOUT UNINST=1
   
   Be careful about using local::lib in combination with "make install UNINST=1".
@@ -3783,28 +4403,51 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
   =head1 LIMITATIONS
   
-  The perl toolchain is unable to handle directory names with spaces in it,
-  so you cant put your local::lib bootstrap into a directory with spaces. What
-  you can do is moving your local::lib to a directory with spaces B<after> you
-  installed all modules inside your local::lib bootstrap. But be aware that you
-  cant update or install CPAN modules after the move.
+  =over 4
   
-  Rather basic shell detection. Right now anything with csh in its name is
+  =item * Directory names with spaces in them are not well supported by the perl
+  toolchain and the programs it uses.  Pure-perl distributions should support
+  spaces, but problems are more likely with dists that require compilation. A
+  workaround you can do is moving your local::lib to a directory with spaces
+  B<after> you installed all modules inside your local::lib bootstrap. But be
+  aware that you can't update or install CPAN modules after the move.
+  
+  =item * Rather basic shell detection. Right now anything with csh in its name is
   assumed to be a C shell or something compatible, and everything else is assumed
   to be Bourne, except on Win32 systems. If the C<SHELL> environment variable is
   not set, a Bourne-compatible shell is assumed.
   
-  Bootstrap is a hack and will use CPAN.pm for ExtUtils::MakeMaker even if you
-  have CPANPLUS installed.
+  =item * Kills any existing PERL_MM_OPT or PERL_MB_OPT.
   
-  Kills any existing PERL5LIB, PERL_MM_OPT or PERL_MB_OPT.
+  =item * Should probably auto-fixup CPAN config if not already done.
   
-  Should probably auto-fixup CPAN config if not already done.
+  =item * On VMS and MacOS Classic (pre-OS X), local::lib loads L<File::Spec>.
+  This means any L<File::Spec> version installed in the local::lib will be
+  ignored by scripts using local::lib.  A workaround for this is using
+  C<use lib "$local_lib/lib/perl5";> instead of using C<local::lib> directly.
+  
+  =item * Conflicts with L<ExtUtils::MakeMaker>'s C<PREFIX> option.
+  C<local::lib> uses the C<INSTALL_BASE> option, as it has more predictable and
+  sane behavior.  If something attempts to use the C<PREFIX> option when running
+  a F<Makefile.PL>, L<ExtUtils::MakeMaker> will refuse to run, as the two
+  options conflict.  This can be worked around by temporarily unsetting the
+  C<PERL_MM_OPT> environment variable.
+  
+  =item * Conflicts with L<Module::Build>'s C<--prefix> option.  Similar to the
+  previous limitation, but any C<--prefix> option specified will be ignored.
+  This can be worked around by temporarily unsetting the C<PERL_MB_OPT>
+  environment variable.
+  
+  =back
   
   Patches very much welcome for any of the above.
   
-  On Win32 systems, does not have a way to write the created environment variables
-  to the registry, so that they can persist through a reboot.
+  =over 4
+  
+  =item * On Win32 systems, does not have a way to write the created environment
+  variables to the registry, so that they can persist through a reboot.
+  
+  =back
   
   =head1 TROUBLESHOOTING
   
@@ -3837,6 +4480,14 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   
   =back
   
+  =head1 SEE ALSO
+  
+  =over 4
+  
+  =item * L<Perl Advent article, 2011|http://perladvent.org/2011/2011-12-01.html>
+  
+  =back
+  
   =head1 SUPPORT
   
   IRC:
@@ -3855,8 +4506,8 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   documentation additions, contributed by Christopher Nehren <apeiron@cpan.org>.
   
   Doc patches for a custom local::lib directory, more cleanups in the english
-  documentation and a L<german documentation|POD2::DE::local::lib> contributed by Torsten Raudssus
-  <torsten@raudssus.de>.
+  documentation and a L<german documentation|POD2::DE::local::lib> contributed by
+  Torsten Raudssus <torsten@raudssus.de>.
   
   Hans Dieter Pearcey <hdp@cpan.org> sent in some additional tests for ensuring
   things will install properly, submitted a fix for the bug causing problems with
@@ -3878,49 +4529,64 @@ $fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   Documentation patches to make win32 usage clearer by
   David Mertens <dcmertens.perl@gmail.com> (run4flat).
   
-  Brazilian L<portuguese translation|POD2::PT_BR::local::lib> and minor doc patches contributed by Breno
-  G. de Oliveira <garu@cpan.org>.
+  Brazilian L<portuguese translation|POD2::PT_BR::local::lib> and minor doc
+  patches contributed by Breno G. de Oliveira <garu@cpan.org>.
   
   Improvements to stacking multiple local::lib dirs and removing them from the
   environment later on contributed by Andrew Rodland <arodland@cpan.org>.
   
-  Patch for Carp version mismatch contributed by Hakim Cassimally <osfameron@cpan.org>.
+  Patch for Carp version mismatch contributed by Hakim Cassimally
+  <osfameron@cpan.org>.
+  
+  Rewrite of internals and numerous bug fixes and added features contributed by
+  Graham Knop <haarg@haarg.org>.
   
   =head1 COPYRIGHT
   
-  Copyright (c) 2007 - 2010 the local::lib L</AUTHOR> and L</CONTRIBUTORS> as
+  Copyright (c) 2007 - 2013 the local::lib L</AUTHOR> and L</CONTRIBUTORS> as
   listed above.
   
   =head1 LICENSE
   
-  This library is free software and may be distributed under the same terms
-  as perl itself.
+  This is free software; you can redistribute it and/or modify it under
+  the same terms as the Perl 5 programming language system itself.
   
   =cut
-  
-  1;
 LOCAL_LIB
 
 s/^  //mg for values %fatpacked;
 
-unshift @INC, sub {
-  if (my $fat = $fatpacked{$_[1]}) {
-    if ($] < 5.008) {
-      return sub {
-        return 0 unless length $fat;
-        $fat =~ s/^([^\n]*\n?)//;
-        $_ = $1;
-        return 1;
-      };
-    }
-    open my $fh, '<', \$fat
-      or die "FatPacker error loading $_[1] (could be a perl installation issue?)";
-    return $fh;
-  }
-  return
-};
+my $class = 'FatPacked::'.(0+\%fatpacked);
+no strict 'refs';
+*{"${class}::files"} = sub { keys %{$_[0]} };
 
-} # END OF FATPACK CODE
+if ($] < 5.008) {
+  *{"${class}::INC"} = sub {
+     if (my $fat = $_[0]{$_[1]}) {
+       return sub {
+         return 0 unless length $fat;
+         $fat =~ s/^([^\n]*\n?)//;
+         $_ = $1;
+         return 1;
+       };
+     }
+     return;
+  };
+}
+
+else {
+  *{"${class}::INC"} = sub {
+    if (my $fat = $_[0]{$_[1]}) {
+      open my $fh, '<', \$fat
+        or die "FatPacker error loading $_[1] (could be a perl installation issue?)";
+      return $fh;
+    }
+    return;
+  };
+}
+
+unshift @INC, bless \%fatpacked, $class;
+  } # END OF FATPACK CODE
 
 use strict;
 use warnings;

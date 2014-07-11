@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use Getopt::Long qw(:config gnu_getopt pass_through require_order);
-use File::Which qw(which);
 
 use App::shelly::config qw(config lisp_impl dumped_core_path local_path);
 use App::shelly::command;
