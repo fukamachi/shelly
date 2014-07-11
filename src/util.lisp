@@ -56,10 +56,16 @@
     (values)))
 
 (defun load-shlyfile (shlyfile)
-  (pushnew (directory-namestring (asdf::truenamize shlyfile))
-           asdf:*central-registry*)
-  (let ((*standard-output* (make-broadcast-stream)))
-    (load shlyfile)))
+  (let ((shlyfile (if (fad:pathname-absolute-p shlyfile)
+                      shlyfile
+                      #+ccl
+                      (merge-pathnames shlyfile (ccl:current-directory))
+                      #-ccl
+                      (asdf::truenamize shlyfile))))
+    (pushnew (directory-namestring shlyfile)
+             asdf:*central-registry*)
+    (let ((*standard-output* (make-broadcast-stream)))
+      (load shlyfile))))
 
 @export
 (defun load-local-shlyfile (&optional shlyfile)
