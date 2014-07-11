@@ -1,6 +1,6 @@
 #|
   This file is a part of shelly project.
-  Copyright (c) 2012 Eitarow Fukamachi (e.arrows@gmail.com)
+  Copyright (c) 2012-2014 Eitaro Fukamachi (e.arrows@gmail.com)
 |#
 
 (in-package :cl-user)
@@ -9,7 +9,7 @@
 (in-package :shelly-test-asd)
 
 (defsystem shelly-test
-  :author "Eitarow Fukamachi"
+  :author "Eitaro Fukamachi"
   :license "BSD"
   :depends-on (:shelly
                :cl-test-more)

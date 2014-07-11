@@ -1,12 +1,12 @@
 #|
   This file is a part of shelly project.
-  Copyright (c) 2012 Eitarow Fukamachi (e.arrows@gmail.com)
+  Copyright (c) 2012-2014 Eitaro Fukamachi (e.arrows@gmail.com)
 |#
 
 #|
   Shelly - Run Common Lisp from shell easily.
 
-  Author: Eitarow Fukamachi (e.arrows@gmail.com)
+  Author: Eitaro Fukamachi (e.arrows@gmail.com)
 |#
 
 (in-package :cl-user)
@@ -16,7 +16,7 @@
 
 (defsystem shelly
   :version "0.6.1"
-  :author "Eitarow Fukamachi"
+  :author "Eitaro Fukamachi"
   :license "BSD 2-Clause"
   :depends-on (:cl-annot
                :swank
