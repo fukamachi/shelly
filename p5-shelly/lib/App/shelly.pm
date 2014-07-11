@@ -6,7 +6,7 @@ use warnings;
 use Getopt::Long qw(:config gnu_getopt pass_through require_order);
 use File::Which qw(which);
 
-use App::shelly::config qw(config local_path);
+use App::shelly::config qw(config lisp_impl dumped_core_path local_path);
 use App::shelly::command;
 
 sub new {
@@ -45,6 +45,10 @@ sub parse_options {
     }
 }
 
+sub task {
+    return $_[0]->{argv}->[0];
+}
+
 sub doit {
     my ($self) = @_;
 
@@ -67,11 +71,25 @@ sub doit {
 sub build_command {
     my ($self) = @_;
 
-    my $task = $self->{argv}->[0] || '';
+    my $task = $self->task;
 
     return
         $task eq 'install'   ? $self->_build_command_for_install
+      : $task eq 'dump-core' ? $self->_build_command_for_dump_core
       : $self->_build_command_for_others;
+}
+
+sub _build_command_for_dump_core {
+    my ($self) = @_;
+
+    my $command = App::shelly::command->new(verbose => $self->{verbose});
+
+    $command->load_shelly;
+    $command->check_shelly_version;
+    $command->load_libraries($self->{load_libraries});
+    $command->run_shelly_command($self->{argv});
+
+    return $command;
 }
 
 sub _build_command_for_install {
@@ -91,7 +109,18 @@ sub _build_command_for_others {
 
     my $command = App::shelly::command->new(verbose => $self->{verbose});
 
-    $command->load_shelly;
+    if (!exists $ENV{SHELLY_PATH} && -e dumped_core_path) {
+        $command->add_option('--core', dumped_core_path);
+        $command->add_eval_option(q{(shelly.util:shadowing-use-package :shelly)});
+    }
+    else {
+        if (!exists $ENV{SHELLY_PATH} && lisp_impl =~ /^(?:sbcl|clisp|ccl|alisp)/) {
+            print STDERR
+                "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly dump-core\".\n";
+        }
+
+        $command->load_shelly;
+    }
 
     $command->check_shelly_version;
     $command->add_load_path($self->{load_path});

@@ -5,7 +5,7 @@ use warnings;
 use Exporter::Lite;
 use Path::Class qw(dir);
 
-our @EXPORT_OK = qw(config config_path shelly_path local_path);
+our @EXPORT_OK = qw(config config_path lisp_impl dumped_core_path shelly_path local_path);
 
 my $local_base_path = $ENV{HOME} . '/.shelly/';
 
@@ -24,6 +24,21 @@ sub shelly_path {
     if (-e local_path('shelly/')) {
         return local_path('shelly/')
     }
+}
+
+my $_lisp_impl_cache = undef;
+sub lisp_impl {
+    $_lisp_impl_cache ||= do {
+        my $lisp_impl = `[ -s "$ENV{CIM_HOME}/config/current.$ENV{CIM_ID}" ] && . "$ENV{CIM_HOME}/config/current.$ENV{CIM_ID}" && echo "\$LISP_IMPL"`;
+        chomp $lisp_impl;
+
+        $lisp_impl;
+    };
+}
+
+sub dumped_core_path {
+    my $core_path = 'dumped-cores/' . ( $_[0] || ( lisp_impl . '.core' ) );
+    return -e $core_path ? $core_path : local_path($core_path);
 }
 
 sub config {

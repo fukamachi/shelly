@@ -13,9 +13,9 @@
                 :file-exists-p
                 :delete-directory-and-files)
   (:import-from :shelly.impl
-                :*current-lisp-name*
                 :*current-lisp-path*
-                :*eval-option*)
+                :*eval-option*
+                :save-core-image)
   (:import-from :shelly.versions
                 :download-version)
   (:import-from :shelly.util
@@ -50,6 +50,14 @@ You can install a specific version by using \"--version\"."
                     (slot-value (asdf:find-system :shelly)
                                 'asdf:version))))
 
+    ;; Delete dumped cores of all Lisp implementations
+    ;; if the installing version is different from the current version.
+    (let ((current-installed-version (getenv "SHELLY_VERSION")))
+      (unless (or (not current-installed-version)
+                  (string= version current-installed-version))
+        (map nil #'delete-file
+             (fad:list-directory (merge-pathnames "dumped-cores/" home-config-path)))))
+
     (ensure-directories-exist home-config-path)
 
     (with-open-file (out (merge-pathnames "config" home-config-path)
@@ -64,11 +72,11 @@ You can install a specific version by using \"--version\"."
     quicklisp_home => ~:[undef~;~:*\"~A\"~]
 }
 "
-              *current-lisp-name*
+              (getenv "LISP_IMPL")
               version
               #+quicklisp ql::*quicklisp-home* #-quicklisp nil))
 
-    (dolist (dir '("bin/"))
+    (dolist (dir '("dumped-cores/" "bin/"))
       (ensure-directories-exist
        (merge-pathnames dir home-config-path)))
 
@@ -88,7 +96,8 @@ You can install a specific version by using \"--version\"."
       (delete-directory-and-files shelly-dir
                                   :if-does-not-exist :ignore)
       (copy-directory shelly-system-path
-                      shelly-dir)))
+                      shelly-dir))
+    (dump-core :quit-lisp nil))
 
   (format t "~&
 Successfully installed!
@@ -97,3 +106,57 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
     PATH=$HOME/.shelly/bin:$PATH
 
 "))
+
+(defun dumped-core-path ()
+  (merge-pathnames (format nil "dumped-cores/~A.core"
+                           (getenv "LISP_IMPL"))
+                   (merge-pathnames ".shelly/" (user-homedir-pathname))))
+
+@export
+(defun dump-core (&key (quit-lisp t) load-systems (output (dumped-core-path)))
+  "Dump Lisp core image file for faster startup."
+  (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~S'"
+                          *current-lisp-path*
+
+                          #+ccl "--no-init"
+                          #+sbcl "--no-userinit"
+                          #+allegro "-qq"
+                          #+clisp "-norc"
+                          #+cmu "-noinit"
+                          #+ecl "-norc"
+                          #-(or ccl sbcl allegro clisp cmu ecl) ""
+
+                          *eval-option*
+                          #+quicklisp
+                          (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
+                            (if (probe-file quicklisp-init)
+                                `(load ,quicklisp-init)
+                                ""))
+                          #-quicklisp
+                          '(require (quote asdf))
+
+                          *eval-option*
+                          `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
+
+                          *eval-option*
+                          (format nil
+                                  "(let (#+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
+                                  (cons :shelly
+                                        load-systems))
+
+                          *eval-option*
+                          `(shelly.impl:save-core-image ,(princ-to-string output)))
+  (when quit-lisp
+    (terminate))
+  (values))
+
+@export
+(defun rm-core ()
+  "Remove saved core image file which created by `dump-core'."
+  (let ((path (dumped-core-path)))
+    (handler-case
+        (progn (delete-file path)
+               (format t "~&Successfully deleted: ~A~%" path))
+      (file-error (c) (princ c))))
+
+  (terminate))
