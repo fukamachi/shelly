@@ -142,6 +142,17 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
   (values))
 
 @export
+(defun local-dump-core (&rest systems)
+  "(Experimental)
+Dump Lisp core image file to the current directory.
+This command takes system names to be included in the core."
+  (ensure-directories-exist "dumped-cores/")
+  (dump-core :quit-lisp nil
+             :load-systems systems
+             :output (format nil "dumped-cores/~A.core"
+                             (getenv "LISP_IMPL"))))
+
+@export
 (defun rm-core ()
   "Remove saved core image file which created by `dump-core'."
   (let ((path (dumped-core-path)))
