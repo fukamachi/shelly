@@ -2,6 +2,7 @@ package App::shelly::command;
 
 use strict;
 use warnings;
+use Path::Class qw(dir);
 
 use App::shelly::config qw(config shelly_path);
 
@@ -28,9 +29,10 @@ sub load_shelly {
     my ($self) = @_;
 
     if (my $shelly_path = shelly_path) {
+        $shelly_path = dir($shelly_path)->absolute;
         $shelly_path =~ s!/?$!/!;
         $self->add_eval_option("(require (quote asdf))");
-        $self->add_eval_option(qq'(setf asdf:*central-registry* (cons #P"$shelly_path" asdf:*central-registry*))');
+        $self->add_eval_option(qq'(push #P"$shelly_path" asdf:*central-registry*)');
     }
 
     $self->add_option('-L', 'shelly');
