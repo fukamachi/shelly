@@ -52,22 +52,6 @@ You can install a specific version by using \"--version\"."
 
     (ensure-directories-exist home-config-path)
 
-    (with-open-file (out (merge-pathnames
-                          (format nil "config.~A" *current-lisp-name*)
-                          home-config-path)
-                         :direction :output
-                         :if-does-not-exist :create
-                         :if-exists :supersede)
-      (format out "# -*- mode: perl -*-
-
-{
-~:[~;~:*    binary_path => \"~A\",~]
-}
-"
-              (or
-               (getenv "LISP_BINARY")
-               *current-lisp-path*)))
-
     (with-open-file (out (merge-pathnames "config" home-config-path)
                          :direction :output
                          :if-does-not-exist :create

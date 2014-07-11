@@ -113,7 +113,7 @@
                   :verbose verbose))
              (run-repl))
            (prompt)
-        finally (terminalte)))
+        finally (terminate)))
 
 (defun canonicalize-arg (arg0)
   (unless (stringp arg0)
