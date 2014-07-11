@@ -35,7 +35,21 @@ sub load_shelly {
         $self->add_eval_option(qq'(push #P"$shelly_path" asdf:*central-registry*)');
     }
 
-    $self->add_option('-L', 'shelly');
+    # NOTE: Mysteriously, this doesn't work on Clozure CL, so loading Shelly as an eval option.
+    #$self->add_option('-L', 'shelly');
+    $self->add_eval_option(<<END_OF_LISP);
+(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable)))
+  (handler-case #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)
+    (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
+     (format *error-output* "~&Error: ~A~&" c)
+     #+quicklisp
+     (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
+     #+allegro (excl:exit 1 :quiet t)
+     #+sbcl    (sb-ext:exit)
+     #-(or allegro sbcl) (quit)))
+  (values))
+END_OF_LISP
+    $self->add_eval_option('(shelly.util::shadowing-use-package :shelly)');
 }
 
 sub check_shelly_version {
