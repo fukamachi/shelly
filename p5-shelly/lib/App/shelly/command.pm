@@ -17,7 +17,6 @@ sub new {
         lisp_bin => $args{lisp_bin} || $ENV{LISP_BINARY},
         verbose  => $args{verbose},
         options  => [],
-        core     => undef,
     }, $class;
 }
 
@@ -29,11 +28,6 @@ sub add_option {
 sub add_eval_option {
     my ($self, $command) = @_;
     $self->add_option(impl->('eval'), $command);
-}
-
-sub set_core {
-    my ($self, $core) = @_;
-    $self->{core} = $core;
 }
 
 sub requires_quicklisp {
@@ -59,7 +53,7 @@ sub load_shelly {
      #+quicklisp
      (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
      #+allegro (excl:exit 1 :quiet t)
-     #+sbcl    (sb-ext:quit)
+     #+sbcl    (sb-ext:exit)
      #-(or allegro sbcl) (quit)))
   (values))
 END_OF_LISP
@@ -132,7 +126,6 @@ sub arrayfy {
 
     return (
         $self->{lisp_bin},
-        ($self->{core} ? (impl->('core_option'), $self->{core}) : ()),
         @{ impl->('pre_options') || [] },
         @{ $self->{options} },
         @{ impl->('other_options') || [] },

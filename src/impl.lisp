@@ -41,16 +41,6 @@
      #+ecl "-eval"))
 
 @export
-(defun save-core-image (filepath)
-  #+allegro (progn (excl:dumplisp :name filepath) (excl:exit 1 :quiet t))
-  #+ccl (ccl:save-application filepath)
-  #+sbcl (sb-ext:save-lisp-and-die filepath)
-  #+clisp (progn (ext:saveinitmem filepath) (ext:quit))
-  #+cmu (ext:save-lisp filepath :load-init-file nil)
-  #-(or allegro ccl sbcl clisp cmu)
-  (error "Dumping core image isn't supported on this implementation."))
-
-@export
 (defun condition-undefined-function-name (condition)
   (or
    #+sbcl (slot-value condition 'sb-kernel::name)

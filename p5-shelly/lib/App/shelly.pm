@@ -7,7 +7,7 @@ use Getopt::Long qw(:config gnu_getopt pass_through require_order);
 use File::Which qw(which);
 
 use App::shelly::impl;
-use App::shelly::config qw(config dumped_core_path local_path);
+use App::shelly::config qw(config local_path);
 use App::shelly::command;
 
 sub impl {
@@ -94,7 +94,6 @@ sub build_command {
 
     return
         $task eq 'install'   ? $self->_build_command_for_install
-      : $task eq 'dump-core' ? $self->_build_command_for_dump_core
       : $self->_build_command_for_others;
 }
 
@@ -114,7 +113,7 @@ sub _build_command_for_install {
     return $command;
 }
 
-sub _build_command_for_dump_core {
+sub _build_command_for_others {
     my ($self) = @_;
 
     my $command = App::shelly::command->new(verbose => $self->{verbose});
@@ -124,33 +123,6 @@ sub _build_command_for_dump_core {
     $command->load_quicklisp;
     $command->requires_quicklisp;
     $command->load_shelly;
-    $command->check_shelly_version;
-    $command->load_libraries($self->{load_libraries});
-    $command->run_shelly_command($self->{argv});
-
-    return $command;
-}
-
-sub _build_command_for_others {
-    my ($self) = @_;
-
-    my $command = App::shelly::command->new(verbose => $self->{verbose});
-
-    $command->add_option(impl->('noinit_option'));
-
-    if (!exists $ENV{SHELLY_PATH} && -e dumped_core_path) {
-        $command->set_core(dumped_core_path);
-    }
-    else {
-        if (!exists $ENV{SHELLY_PATH} && $self->{lisp_impl} ne 'ecl') {
-            print STDERR
-                "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly dump-core\".\n";
-        }
-
-        $command->load_quicklisp;
-        $command->requires_quicklisp;
-        $command->load_shelly;
-    }
 
     $command->check_shelly_version;
     $command->add_load_path($self->{load_path});

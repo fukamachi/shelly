@@ -11,17 +11,11 @@
   (:import-from :shelly.core
                 :run-repl)
   (:import-from :shelly.install
-                :install
-                :dump-core
-                :local-dump-core
-                :rm-core)
+                :install)
   (:import-from :shelly.versions
                 :release-versions)
   (:export :run-repl
-           :install
-           :dump-core
-           :local-dump-core
-           :rm-core))
+           :install))
 (in-package :shelly)
 
 (cl-annot:enable-annot-syntax)

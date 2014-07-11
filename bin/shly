@@ -15,7 +15,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   use File::Which qw(which);
   
   use App::shelly::impl;
-  use App::shelly::config qw(config dumped_core_path local_path);
+  use App::shelly::config qw(config local_path);
   use App::shelly::command;
   
   sub impl {
@@ -102,7 +102,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       return
           $task eq 'install'   ? $self->_build_command_for_install
-        : $task eq 'dump-core' ? $self->_build_command_for_dump_core
         : $self->_build_command_for_others;
   }
   
@@ -122,7 +121,7 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       return $command;
   }
   
-  sub _build_command_for_dump_core {
+  sub _build_command_for_others {
       my ($self) = @_;
   
       my $command = App::shelly::command->new(verbose => $self->{verbose});
@@ -132,33 +131,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       $command->load_quicklisp;
       $command->requires_quicklisp;
       $command->load_shelly;
-      $command->check_shelly_version;
-      $command->load_libraries($self->{load_libraries});
-      $command->run_shelly_command($self->{argv});
-  
-      return $command;
-  }
-  
-  sub _build_command_for_others {
-      my ($self) = @_;
-  
-      my $command = App::shelly::command->new(verbose => $self->{verbose});
-  
-      $command->add_option(impl->('noinit_option'));
-  
-      if (!exists $ENV{SHELLY_PATH} && -e dumped_core_path) {
-          $command->set_core(dumped_core_path);
-      }
-      else {
-          if (!exists $ENV{SHELLY_PATH} && $self->{lisp_impl} ne 'ecl') {
-              print STDERR
-                  "Warning: Core image wasn't found. It is probably slow, isn't it? Try \"shly dump-core\".\n";
-          }
-  
-          $command->load_quicklisp;
-          $command->requires_quicklisp;
-          $command->load_shelly;
-      }
   
       $command->check_shelly_version;
       $command->add_load_path($self->{load_path});
@@ -280,7 +252,6 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
           lisp_bin => $args{lisp_bin} || $ENV{LISP_BINARY},
           verbose  => $args{verbose},
           options  => [],
-          core     => undef,
       }, $class;
   }
   
@@ -292,11 +263,6 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
   sub add_eval_option {
       my ($self, $command) = @_;
       $self->add_option(impl->('eval'), $command);
-  }
-  
-  sub set_core {
-      my ($self, $core) = @_;
-      $self->{core} = $core;
   }
   
   sub requires_quicklisp {
@@ -322,7 +288,7 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
        #+quicklisp
        (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
        #+allegro (excl:exit 1 :quiet t)
-       #+sbcl    (sb-ext:quit)
+       #+sbcl    (sb-ext:exit)
        #-(or allegro sbcl) (quit)))
     (values))
   END_OF_LISP
@@ -395,7 +361,6 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
   
       return (
           $self->{lisp_bin},
-          ($self->{core} ? (impl->('core_option'), $self->{core}) : ()),
           @{ impl->('pre_options') || [] },
           @{ $self->{options} },
           @{ impl->('other_options') || [] },
@@ -419,7 +384,7 @@ $fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
   use Exporter::Lite;
   use Path::Class qw(dir);
   
-  our @EXPORT_OK = qw(config config_path dumped_core_path shelly_path local_path);
+  our @EXPORT_OK = qw(config config_path shelly_path local_path);
   
   my $local_base_path = $ENV{HOME} . '/.shelly/';
   
@@ -444,11 +409,6 @@ $fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
       if (-e local_path('shelly/')) {
           return local_path('shelly/')
       }
-  }
-  
-  sub dumped_core_path {
-      my $core_path = 'dumped-cores/' . ( $_[0] || ( $ENV{LISP_IMPL} . '.core' ) );
-      return -e $core_path ? $core_path : local_path($core_path);
   }
   
   sub config {
