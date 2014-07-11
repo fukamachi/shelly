@@ -67,14 +67,10 @@ You can install a specific version by using \"--version\"."
       (format out "# -*- mode: perl -*-
 
 {
-    default_lisp => \"~A\",
     version => \"~A\",
-    quicklisp_home => ~:[undef~;~:*\"~A\"~]
 }
 "
-              (getenv "LISP_IMPL")
-              version
-              #+quicklisp ql::*quicklisp-home* #-quicklisp nil))
+              version))
 
     (dolist (dir '("dumped-cores/" "bin/"))
       (ensure-directories-exist
