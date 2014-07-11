@@ -25,7 +25,7 @@
                :bordeaux-threads)
   :components ((:module "src"
                 :components
-                ((:file "shelly" :depends-on ("core" "install" "versions"))
+                ((:file "shelly" :depends-on ("core" "install" "versions" "util"))
                  (:file "core" :depends-on ("impl" "error" "util"))
                  (:file "install" :depends-on ("impl" "versions" "util"))
                  (:file "versions")

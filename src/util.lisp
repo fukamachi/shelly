@@ -55,6 +55,14 @@
       (force-output *error-output*))
     (values)))
 
+@export
+(defun local-command-symbols (&optional (package (find-package :cl-user)))
+  (let (symbols)
+    (do-symbols (symbol package)
+      (when (and (eq package (symbol-package symbol)) (fboundp symbol))
+        (push symbol symbols)))
+    symbols))
+
 (defun load-shlyfile (shlyfile)
   (let ((shlyfile (if (fad:pathname-absolute-p shlyfile)
                       shlyfile
@@ -64,8 +72,10 @@
                       (asdf::truenamize shlyfile))))
     (pushnew (directory-namestring shlyfile)
              asdf:*central-registry*)
-    (let ((*standard-output* (make-broadcast-stream)))
-      (load shlyfile))))
+    (let ((*standard-output* (make-broadcast-stream))
+          (*package* (find-package :cl-user)))
+      (load shlyfile)
+      (import (local-command-symbols) (find-package :cim)))))
 
 @export
 (defun load-local-shlyfile (&optional shlyfile)
