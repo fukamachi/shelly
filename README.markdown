@@ -16,7 +16,7 @@ Shelly allows you to execute Common Lisp functions like a shell command.
 
 ## Requirements
 
-- Lisp implementation (SBCL, Clozure CL, Allegro CL, GNU CLISP, CMUCL or ECL)
+- [CIM](https://github.com/KeenS/CIM)
 - Perl5
 - [Quicklisp](http://beta.quicklisp.org/)
 
@@ -48,9 +48,7 @@ Shelly stable version is included in Quicklisp dist. I _don't_ recommend this ve
 
 or
 
-    $ curl -L http://shlyfile.org/shly | LISP_IMPL=ccl perl - install
-
-Change `LISP_IMPL` to your Lisp implementation name which is one of `sbcl`, `ccl`, `alisp`, `clisp`, `cmucl` and `ecl`.
+    $ curl -L http://shlyfile.org/shly | perl - install
 
 ### Install from source
 

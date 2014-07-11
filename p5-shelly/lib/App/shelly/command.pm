@@ -3,18 +3,12 @@ package App::shelly::command;
 use strict;
 use warnings;
 
-use App::shelly::impl;
 use App::shelly::config qw(config shelly_path);
-
-sub impl {
-    sub { App::shelly::impl->param(@_); }
-}
 
 sub new {
     my ($class, %args) = @_;
 
     return bless {
-        lisp_bin => $args{lisp_bin} || $ENV{LISP_BINARY},
         verbose  => $args{verbose},
         options  => [],
     }, $class;
@@ -27,13 +21,7 @@ sub add_option {
 
 sub add_eval_option {
     my ($self, $command) = @_;
-    $self->add_option(impl->('eval'), $command);
-}
-
-sub requires_quicklisp {
-    $_[0]->add_eval_option(<<END_OF_LISP);
-#-quicklisp (format *error-output* "~&Error: Shelly requires Quicklisp.~%") #+quicklisp t
-END_OF_LISP
+    $self->add_option('-e', $command);
 }
 
 sub load_shelly {
@@ -45,19 +33,7 @@ sub load_shelly {
         $self->add_eval_option(qq'(setf asdf:*central-registry* (cons #P"$shelly_path" asdf:*central-registry*))');
     }
 
-    $self->add_eval_option(<<END_OF_LISP);
-(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable)))
-  (handler-case #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)
-    (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
-     (format *error-output* "~&Error: ~A~&" c)
-     #+quicklisp
-     (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
-     #+allegro (excl:exit 1 :quiet t)
-     #+sbcl    (sb-ext:exit)
-     #-(or allegro sbcl) (quit)))
-  (values))
-END_OF_LISP
-    $self->add_eval_option('(shelly.util::shadowing-use-package :shelly)');
+    $self->add_option('-L', 'shelly');
 }
 
 sub check_shelly_version {
@@ -84,29 +60,12 @@ sub load_libraries {
     my ($self, $libraries) = @_;
 
     if (@$libraries) {
-        $self->add_eval_option(
-            sprintf(
-                "(shelly.util::load-systems (list :%s) :verbose %s)",
-                (join ' :', @$libraries),
-                $self->{verbose} ? 't' : 'nil'
-            )
-        );
+        $self->add_option('-L', $_) for @$libraries;
     }
 }
 
 sub quit_lisp {
     $_[0]->add_eval_option('(swank-backend:quit-lisp)');
-}
-
-sub load_quicklisp {
-    my ($self) = @_;
-    if (config->{quicklisp_home}) {
-        $self->add_eval_option(<<END_OF_LISP);
-(let ((quicklisp-init (merge-pathnames "@{[ config->{quicklisp_home} ]}setup.lisp")))
-  (when (probe-file quicklisp-init)
-    (load quicklisp-init)))
-END_OF_LISP
-    }
 }
 
 sub run_shelly_command {
@@ -124,12 +83,7 @@ sub run_shelly_command {
 sub arrayfy {
     my ($self) = @_;
 
-    return (
-        $self->{lisp_bin},
-        @{ impl->('pre_options') || [] },
-        @{ $self->{options} },
-        @{ impl->('other_options') || [] },
-    );
+    return ('cl', @{ $self->{options} });
 }
 
 sub stringify {

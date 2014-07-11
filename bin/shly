@@ -14,19 +14,13 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   use Getopt::Long qw(:config gnu_getopt pass_through require_order);
   use File::Which qw(which);
   
-  use App::shelly::impl;
   use App::shelly::config qw(config local_path);
   use App::shelly::command;
-  
-  sub impl {
-      sub { App::shelly::impl->param(@_); }
-  }
   
   sub new {
       my ($class) = @_;
   
       return bless {
-          lisp_impl => $ENV{LISP_IMPL} || config->{default_lisp},
           load_path      => [],
           load_libraries => [],
           argv           => [],
@@ -40,7 +34,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       push @ARGV, @argv;
   
       GetOptions(
-          'impl=s'    => \$self->{lisp_impl},
           'I=s@'      => \$self->{load_path},
           'load|L=s@' => \$self->{load_libraries},
           'file|f=s'  => \$self->{shlyfile},
@@ -68,22 +61,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
           exit;
       }
   
-      unless ( $self->{lisp_impl} ) {
-          $self->{lisp_impl} = $self->detect_installed_lisp;
-      }
-  
-      local $ENV{LISP_IMPL} = $self->{lisp_impl};
-  
-      unless ( impl->('impl_name') ) {
-          print "Unsupported CL implementation: @{[ $self->{lisp_impl} ]}\n";
-          print qq(It must be one of "sbcl", "ccl", "alisp", "clisp", "cmucl" or "ecl".\n);
-          exit 1;
-      }
-  
-  
-      my $lisp_bin = $ENV{LISP_BINARY} || impl->('binary') || $self->{lisp_impl};
-      $ENV{LISP_BINARY} = $lisp_bin;
-  
       my $command = $self->build_command;
   
       if ( $self->{debug} ) {
@@ -110,10 +87,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       my $command = App::shelly::command->new(verbose => $self->{verbose});
   
-      if (impl->('init_option')) {
-          $command->add_option(@{ impl->('init_option') });
-      }
-      $command->requires_quicklisp;
       $command->load_shelly;
       $command->load_libraries($self->{load_libraries});
       $command->run_shelly_command($self->{argv});
@@ -126,10 +99,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   
       my $command = App::shelly::command->new(verbose => $self->{verbose});
   
-      $command->add_option(impl->('noinit_option'));
-  
-      $command->load_quicklisp;
-      $command->requires_quicklisp;
       $command->load_shelly;
   
       $command->check_shelly_version;
@@ -146,41 +115,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
       $command->run_shelly_command($self->{argv});
   
       return $command;
-  }
-  
-  sub detect_installed_lisp {
-      print "LISP_IMPL isn't set. Auto detecting...\n";
-  
-      my (@lisp_impl) =
-        grep { which($_) } qw(sbcl ccl alisp clisp cmucl lisp ecl);
-      @lisp_impl = map { $_ eq 'lisp' ? 'cmucl' : $_ } @lisp_impl;
-  
-      unless (@lisp_impl) {
-          print "Couldn't detect installed Lisp.\n";
-          exit 1;
-      }
-  
-      print "Installed Lisp: " . ( join ', ', @lisp_impl ) . "\n";
-  
-      if ( @lisp_impl > 1 ) {
-          print "Which do you prefer? [@{[ $lisp_impl[0] ]}] : ";
-  
-          my $input = <STDIN>;
-  
-          {
-              no warnings 'uninitialized';
-              chomp $input;
-          }
-  
-          unless ($input) {
-              $input = $lisp_impl[0];
-              print $input, "\n";
-          }
-  
-          return $input;
-      }
-  
-      return $lisp_impl[0];
   }
   
   1;
@@ -202,10 +136,6 @@ $fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   =item B<-h, --help>
   
   Show this help.
-  
-  =item B<--impl [implementation]>
-  
-  Tell what Lisp implementation to use. The default is $LISP_IMPL.
   
   =item B<-I [directory]>
   
@@ -238,18 +168,12 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
   use strict;
   use warnings;
   
-  use App::shelly::impl;
   use App::shelly::config qw(config shelly_path);
-  
-  sub impl {
-      sub { App::shelly::impl->param(@_); }
-  }
   
   sub new {
       my ($class, %args) = @_;
   
       return bless {
-          lisp_bin => $args{lisp_bin} || $ENV{LISP_BINARY},
           verbose  => $args{verbose},
           options  => [],
       }, $class;
@@ -262,13 +186,7 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
   
   sub add_eval_option {
       my ($self, $command) = @_;
-      $self->add_option(impl->('eval'), $command);
-  }
-  
-  sub requires_quicklisp {
-      $_[0]->add_eval_option(<<END_OF_LISP);
-  #-quicklisp (format *error-output* "~&Error: Shelly requires Quicklisp.~%") #+quicklisp t
-  END_OF_LISP
+      $self->add_option('-e', $command);
   }
   
   sub load_shelly {
@@ -280,19 +198,7 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
           $self->add_eval_option(qq'(setf asdf:*central-registry* (cons #P"$shelly_path" asdf:*central-registry*))');
       }
   
-      $self->add_eval_option(<<END_OF_LISP);
-  (let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable)))
-    (handler-case #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)
-      (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
-       (format *error-output* "~&Error: ~A~&" c)
-       #+quicklisp
-       (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
-       #+allegro (excl:exit 1 :quiet t)
-       #+sbcl    (sb-ext:exit)
-       #-(or allegro sbcl) (quit)))
-    (values))
-  END_OF_LISP
-      $self->add_eval_option('(shelly.util::shadowing-use-package :shelly)');
+      $self->add_option('-L', 'shelly');
   }
   
   sub check_shelly_version {
@@ -319,29 +225,12 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
       my ($self, $libraries) = @_;
   
       if (@$libraries) {
-          $self->add_eval_option(
-              sprintf(
-                  "(shelly.util::load-systems (list :%s) :verbose %s)",
-                  (join ' :', @$libraries),
-                  $self->{verbose} ? 't' : 'nil'
-              )
-          );
+          $self->add_option('-L', $_) for @$libraries;
       }
   }
   
   sub quit_lisp {
       $_[0]->add_eval_option('(swank-backend:quit-lisp)');
-  }
-  
-  sub load_quicklisp {
-      my ($self) = @_;
-      if (config->{quicklisp_home}) {
-          $self->add_eval_option(<<END_OF_LISP);
-  (let ((quicklisp-init (merge-pathnames "@{[ config->{quicklisp_home} ]}setup.lisp")))
-    (when (probe-file quicklisp-init)
-      (load quicklisp-init)))
-  END_OF_LISP
-      }
   }
   
   sub run_shelly_command {
@@ -359,12 +248,7 @@ $fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
   sub arrayfy {
       my ($self) = @_;
   
-      return (
-          $self->{lisp_bin},
-          @{ impl->('pre_options') || [] },
-          @{ $self->{options} },
-          @{ impl->('other_options') || [] },
-      );
+      return ('cl', @{ $self->{options} });
   }
   
   sub stringify {
@@ -424,77 +308,6 @@ $fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
   
   1;
 APP_SHELLY_CONFIG
-
-$fatpacked{"App/shelly/impl.pm"} = <<'APP_SHELLY_IMPL';
-  package App::shelly::impl;
-  
-  use strict;
-  use warnings;
-  
-  use Config::ENV 'LISP_IMPL';
-  
-  use App::shelly::config;
-  
-  common + {};
-  
-  config ccl => +{
-      impl_name     => 'ccl',
-      eval          => '--eval',
-      other_options => ['--quiet'],
-      binary        => App::shelly::config::config('ccl')->{binary_path},
-      core_option   => '-I',
-      noinit_option => '--no-init',
-  };
-  
-  config sbcl => +{
-      impl_name     => 'sbcl',
-      pre_options   => [qw(--noinform --disable-debugger)],
-      eval          => '--eval',
-      other_options => ['--quiet'],
-      binary        => App::shelly::config::config('sbcl')->{binary_path},
-      core_option   => '--core',
-      noinit_option => '--no-userinit',
-  };
-  
-  config alisp => +{
-      impl_name     => 'alisp',
-      pre_options   => ['-batch'],
-      eval          => '-e',
-      other_options => ['-kill'],
-      binary        => App::shelly::config::config('alisp')->{binary_path},
-      core_option   => '-I',
-      init_option   => ['-e', '(loop for filename in excl:*init-file-names* for file = (merge-pathnames filename (user-homedir-pathname)) when (probe-file file) do (load file))'],
-      noinit_option => '-qq',
-  };
-  
-  config clisp => +{
-      impl_name     => 'clisp',
-      eval          => '-x',
-      other_options => [qw(-q --quiet)],
-      binary        => App::shelly::config::config('clisp')->{binary_path},
-      core_option   => '-M',
-      noinit_option => '-norc',
-  };
-  
-  config cmucl => +{
-      impl_name     => 'cmucl',
-      eval          => '-eval',
-      other_options => [qw(-quiet -batch)],
-      binary => App::shelly::config::config('cmucl')->{binary_path} || 'lisp',
-      core_option => '-core',
-      noinit_option => '-noinit',
-  };
-  
-  config ecl => +{
-      impl_name     => 'ecl',
-      eval          => '-eval',
-      other_options => ['-q'],
-      binary        => App::shelly::config::config('ecl')->{binary_path},
-      noinit_option => '-norc',
-  };
-  
-  1;
-APP_SHELLY_IMPL
 
 $fatpacked{"Config/ENV.pm"} = <<'CONFIG_ENV';
   package Config::ENV;
@@ -4090,10 +3903,6 @@ $ shly [options] [atom...]
 =item B<-h, --help>
 
 Show this help.
-
-=item B<--impl [implementation]>
-
-Tell what Lisp implementation to use. The default is $LISP_IMPL.
 
 =item B<-I [directory]>
 

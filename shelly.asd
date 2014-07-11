@@ -47,5 +47,6 @@
           seq)))
   :in-order-to ((test-op (load-op shelly-test))))
 
+#-shelly
 (defmethod asdf:perform :after ((op load-op) (c (eql (find-system :shelly))))
   (pushnew :shelly *features*))

@@ -14,12 +14,6 @@ sub local_path {
 }
 
 sub config_path {
-    my ($impl) = @_;
-
-    if ($impl) {
-        return local_path( 'config.' . $impl );
-    }
-
     return local_path('config');
 }
 
