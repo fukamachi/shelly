@@ -2,8 +2,6 @@
 (defpackage shelly.core
   (:use :cl)
   (:shadow :read :print)
-  (:import-from :swank-backend
-                :arglist)
   (:import-from :cl-fad
                 :file-exists-p)
   (:import-from :bordeaux-threads
@@ -45,49 +43,42 @@
   (when verbose
     (format *debug-io* "~&;-> ~S~%" expr))
 
-  (handler-case
-      (let ((expr (shelly.core::read expr))
-            (system-threads #+thread-support (bt:all-threads)
-                            #-thread-support nil))
-        (labels ((alive-user-threads ()
-                   (remove-if-not #'bt:thread-alive-p
-                                  (set-difference
-                                   #+thread-support (bt:all-threads)
-                                   #-thread-support nil
-                                   system-threads)))
-                 (wait-user-threads ()
-                   (let
-                       #+ccl ((ccl::*invoke-debugger-hook-on-interrupt* t)
-                              (*debugger-hook* (lambda () (ccl:quit))))
-                       #-ccl ()
-                       (map nil #'bt:join-thread (alive-user-threads)))))
-          (when verbose
-            (format *debug-io* "~&;-> ~S~%" expr))
+  (let ((expr (shelly.core::read expr))
+        (system-threads #+thread-support (bt:all-threads)
+                        #-thread-support nil))
+    (labels ((alive-user-threads ()
+               (remove-if-not #'bt:thread-alive-p
+                              (set-difference
+                               #+thread-support (bt:all-threads)
+                               #-thread-support nil
+                               system-threads)))
+             (wait-user-threads ()
+               (let
+                   #+ccl ((ccl::*invoke-debugger-hook-on-interrupt* t)
+                          (*debugger-hook* (lambda () (ccl:quit))))
+                 #-ccl ()
+                 (map nil #'bt:join-thread (alive-user-threads)))))
+      (when verbose
+        (format *debug-io* "~&;-> ~S~%" expr))
 
-          (let ((result
-                 (multiple-value-list
-                  (handler-case (let ((*package* (find-package :cl-user)))
-                                  (eval expr))
-                    (program-error ()
-                      (print-usage (car expr))
-                      (values))
-                    (undefined-function (c)
-                      (let ((funcname (condition-undefined-function-name c)))
-                        (if (string-equal funcname (car expr))
-                            (error 'shelly-command-not-found-error
-                                   :command funcname)
-                            (error c)))
-                      (values))))))
-            (when result
-              (shelly.core::print (car result))))
+      (let ((result
+              (multiple-value-list
+               (handler-case (let ((*package* (find-package :cl-user)))
+                               (eval expr))
+                 (undefined-function (c)
+                   (let ((funcname (condition-undefined-function-name c)))
+                     (if (string-equal funcname (car expr))
+                         (error 'shelly-command-not-found-error
+                                :command funcname)
+                         (error c)))
+                   (values))))))
+        (when result
+          (shelly.core::print (car result))))
 
-          (fresh-line)
+      (fresh-line)
 
-          (handler-case (wait-user-threads)
-            (condition () nil))))
-    (error (c)
-      (format *error-output* "Error: ~A" c)
-      (terminate 1))))
+      (handler-case (wait-user-threads)
+        (condition () nil)))))
 
 (defun prompt ()
   (fresh-line)
@@ -133,13 +124,3 @@
             (string= (package-name (symbol-package arg)) :common-lisp-user))
        (string arg0))
       (t arg))))
-
-(defun print-usage (fn)
-  (if (symbolp fn)
-      (format t
-              "~&Usage: ~(~A~) [~{~(~A~^ ~)~}]~%"
-              fn
-              (swank-backend:arglist fn))
-      (error 'shelly-error
-             :format-control "Invalid command \"~S\""
-             :format-arguments (list fn))))

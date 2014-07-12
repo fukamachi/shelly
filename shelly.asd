@@ -19,7 +19,6 @@
   :author "Eitaro Fukamachi"
   :license "BSD 2-Clause"
   :depends-on (:cl-annot
-               :swank
                :cl-ppcre
                :cl-fad
                :bordeaux-threads)

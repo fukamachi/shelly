@@ -28,7 +28,6 @@ If you choose to use ASDF for instead, you have to install these libraries befor
 
 - [CL-FAD](http://weitz.de/cl-fad/)
 - [CL-PPCRE](http://weitz.de/cl-ppcre/)
-- Swank (a part of [SLIME](http://common-lisp.net/project/slime/))
 - [cl-annot](https://github.com/arielnetworks/cl-annot)
 - [Bordeaux Threads](http://common-lisp.net/project/bordeaux-threads/)
 - [Drakma](http://weitz.de/drakma/)
