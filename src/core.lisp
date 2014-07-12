@@ -78,7 +78,9 @@
       (fresh-line)
 
       (handler-case (wait-user-threads)
-        (condition () nil)))))
+        (condition (e)
+          (princ e)
+          (terminate))))))
 
 (defun prompt ()
   (fresh-line)
