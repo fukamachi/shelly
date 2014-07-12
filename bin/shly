@@ -49,7 +49,7 @@ add_load_path() {
 }
 
 load_library() {
-    add_option "-L" "$1"
+    add_eval_option "(shelly.util::load-systems (list :$1))"
 }
 
 run_shelly_command() {
