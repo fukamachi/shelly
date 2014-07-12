@@ -6,7 +6,8 @@
   (:import-from :cl-fad
                 :copy-file
                 :file-exists-p
-                :delete-directory-and-files)
+                :delete-directory-and-files
+                :walk-directory)
   (:import-from :shelly.impl
                 :*current-lisp-path*
                 :*eval-option*
@@ -38,8 +39,6 @@ You can install a specific version by using \"--version\"."
 (defun install-from-path (shelly-system-path)
   (let* ((home-config-path
           (merge-pathnames ".shelly/" (user-homedir-pathname)))
-         (shly-path
-          (merge-pathnames "bin/shly" shelly-system-path))
          (version (let ((asdf:*central-registry*
                          (cons shelly-system-path asdf:*central-registry*)))
                     (slot-value (asdf:find-system :shelly)
@@ -59,29 +58,27 @@ You can install a specific version by using \"--version\"."
                          :direction :output
                          :if-does-not-exist :create
                          :if-exists :supersede)
-      (format out "# -*- mode: perl -*-
-
-{
-    version => \"~A\",
-}
-"
+      (format out "# -*- mode: perl -*-~2%{~%    version => \"~A\",~%}~%"
               version))
+    (with-open-file (out (merge-pathnames "config.sh" home-config-path)
+                         :direction :output
+                         :if-does-not-exist :create
+                         :if-exists :supersede)
+      (format out "SHELLY_VERSION=\"~A\"" version))
 
     (dolist (dir '("dumped-cores/" "bin/"))
       (ensure-directories-exist
        (merge-pathnames dir home-config-path)))
 
-    (cond
-      ((fad:file-exists-p shly-path)
-       (fad:copy-file shly-path
-        (merge-pathnames "bin/shly" home-config-path)
-        :overwrite t)
-       ;; XXX: must be more portable.
-       (asdf:run-shell-command
-        "chmod u+x ~A"
-        (merge-pathnames "bin/shly" home-config-path)))
-      (t
-       (warn "Shelly script doesn't exist. Ignored.")))
+    (let ((bin-dir (merge-pathnames #P"bin/" home-config-path)))
+      (delete-directory-and-files bin-dir
+                                  :if-does-not-exist :ignore)
+      (copy-directory (merge-pathnames #P"bin/" shelly-system-path)
+                      bin-dir)
+      (fad:walk-directory bin-dir
+                          (lambda (file)
+                            ;; XXX: must be more portable.
+                            (asdf:run-shell-command "chmod u+x ~A" file))))
 
     (let ((shelly-dir (merge-pathnames #P"shelly/" home-config-path)))
       (delete-directory-and-files shelly-dir
