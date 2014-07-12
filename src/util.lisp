@@ -10,7 +10,7 @@
 (cl-annot:enable-annot-syntax)
 
 @export
-(defun shadowing-use-package (packages-to-use &optional (package *package*))
+(defun shadowing-use-package (packages-to-use &optional (package (find-package :cl-user)))
   (let ((packages-to-use (if (consp packages-to-use)
                              packages-to-use
                              (list packages-to-use))))
@@ -70,7 +70,7 @@
     (let ((*standard-output* (make-broadcast-stream))
           (*package* (find-package :cl-user)))
       (load shlyfile)
-      (import (local-command-symbols) (find-package :cim)))))
+      (import (local-command-symbols) (find-package :cl-user)))))
 
 @export
 (defun load-local-shlyfile (&optional shlyfile)
@@ -109,6 +109,23 @@
           (subseq (namestring x) len)
           to))
         :overwrite overwrite)))))
+
+@export
+(defun arglist (fname)
+  #+sbcl (require 'sb-introspect)
+  #+(or sbcl ccl allegro clisp ecl)
+  (handler-case
+      #+sbcl (if (find-package :sb-introspect)
+                 (funcall (intern (string :function-arglist) :sb-introspect)
+                          fname)
+                 :not-available)
+      #+ccl (ccl:arglist fname)
+      #+allegro (excl:arglist fname)
+      #+clisp (ext:arglist fname)
+      #+ecl (ext:function-lambda-list fname)
+      #+abcl (sys::arglist fname)
+    (simple-error () :not-available))
+  #-(or sbcl ccl allegro clisp ecl) :not-available)
 
 @export
 (defun terminate (&optional (status 0) format-string &rest format-arguments)

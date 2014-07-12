@@ -22,16 +22,17 @@
 
 @export
 (defun shelly.core::read (expr)
-  (destructuring-bind (fn &rest args) expr
-    (cons (handler-case (if (stringp fn)
-                            (read-from-string fn)
-                            fn)
-            (error (c)
-              (error 'shelly-read-error
-                     :expression expr
-                     :format-control (princ-to-string c))))
-          (mapcar #'canonicalize-arg
-                  args))))
+  (let ((*package* (find-package :cl-user)))
+    (destructuring-bind (fn &rest args) expr
+      (cons (handler-case (if (stringp fn)
+                              (read-from-string fn)
+                              fn)
+              (error (c)
+                (error 'shelly-read-error
+                       :expression expr
+                       :format-control (princ-to-string c))))
+            (mapcar #'canonicalize-arg
+                    args)))))
 
 (defun shelly.core::print (result)
   (typecase result
