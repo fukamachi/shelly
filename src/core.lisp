@@ -121,7 +121,7 @@
        arg)
       ((string= "" arg) arg)
       ((string= "--" (handler-case (subseq (string arg) 0 2)
-                       (simple-error ())))
+                       (error ())))
        (intern (subseq (string arg) 2)
                :keyword))
       ((ignore-errors (fad:file-exists-p arg0)))
