@@ -67,7 +67,9 @@ run_shelly_command() {
 load_shelly() {
     shelly_path=${SHELLY_PATH:-$SHELLY_HOME/shelly/}
     init_cmd="-e"$'\n'"(require (quote asdf))"
-    init_cmd="$init_cmd"$'\n'"-e"$'\n'"(push (truename \"$shelly_path\") asdf:*central-registry*)"
+    if [ -d "$shelly_path" ]; then
+        init_cmd="$init_cmd"$'\n'"-e"$'\n'"(push (truename \"$shelly_path\") asdf:*central-registry*)"
+    fi
     read -r -d '' cmd_load_shelly <<EOF
 (let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable)))
   (handler-case #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)

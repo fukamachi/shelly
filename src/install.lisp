@@ -31,6 +31,10 @@ You can install a specific version by using \"--version\"."
              (download-version version
                                (merge-pathnames ".shelly/" (user-homedir-pathname)))
              (asdf:system-source-directory :shelly))))
+    (when version
+      (push shelly-system-path asdf:*central-registry*)
+      #+quicklisp (ql:quickload :shelly)
+      #-quicklisp (asdf:load-system :shelly))
     (install-from-path shelly-system-path)
     (when version
       (delete-directory-and-files shelly-system-path)))
@@ -39,10 +43,8 @@ You can install a specific version by using \"--version\"."
 (defun install-from-path (shelly-system-path)
   (let* ((home-config-path
           (merge-pathnames ".shelly/" (user-homedir-pathname)))
-         (version (let ((asdf:*central-registry*
-                         (cons shelly-system-path asdf:*central-registry*)))
-                    (slot-value (asdf:find-system :shelly)
-                                'asdf:version))))
+         (version (slot-value (asdf:find-system :shelly)
+                              'asdf:version)))
 
     ;; Delete dumped cores of all Lisp implementations
     ;; if the installing version is different from the current version.
