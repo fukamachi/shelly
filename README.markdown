@@ -2,9 +2,6 @@
 
 ## Usage
 
-    $ shly ql:update-all-dists --prompt nil
-    $ shly ql:system-apropos clack
-    $ shly ql:quickload :clack
     $ shly -Lclack clackup /path/to/project/app.lisp
     $ shly -Ldrakma http-request http://www.hatena.com/
 
@@ -17,24 +14,6 @@ Shelly allows you to execute Common Lisp functions like a shell command.
 ## Requirements
 
 - [CIM](https://github.com/KeenS/CIM)
-- Perl5
-- [Quicklisp](http://beta.quicklisp.org/)
-
-## Dependencies
-
-All dependencies will be resolved by [Quicklisp](http://beta.quicklisp.org/), so you don't need to know about this.
-
-If you choose to use ASDF for instead, you have to install these libraries before installation.
-
-- [CL-FAD](http://weitz.de/cl-fad/)
-- [CL-PPCRE](http://weitz.de/cl-ppcre/)
-- [cl-annot](https://github.com/arielnetworks/cl-annot)
-- [Bordeaux Threads](http://common-lisp.net/project/bordeaux-threads/)
-- [Drakma](http://weitz.de/drakma/)
-- [FLEXI-STREAMS](http://weitz.de/flexi-streams/)
-- [YASON](http://common-lisp.net/project/yason/)
-- [Chipz](http://method-combination.net/lisp/chipz/)
-- [ARCHIVE](https://github.com/froydnj/archive)
 
 ## Installation
 
@@ -47,7 +26,7 @@ Shelly stable version is included in Quicklisp dist. I _don't_ recommend this ve
 
 or
 
-    $ curl -L http://shlyfile.org/shly | perl - install
+    $ curl -L http://shlyfile.org/shly | /bin/sh
 
 ### Install from source
 
@@ -80,6 +59,8 @@ Shelly ver 0.5.0 or higher allows to specify `--version` to `install` command. Y
 $ shly install --version latest
 ```
 
+To use Shelly ver 0.6.1 or older versions, you need Perl5 and a Common Lisp implementation.
+
 ## Uninstall
 
 ```
@@ -97,20 +78,6 @@ Shelly loads a local file which is named `shlyfile.lisp` if it exists. You can d
 (defun build ()
   ;; Somthing to build your app.
   )
-```
-
-## For developers
-
-### Build a script
-
-```
-$ perl script/build.PL
-```
-
-### Update Perl5 Dependencies
-
-```
-$ perl script/upgrade-fatlib.pl
 ```
 
 ## Copyright
