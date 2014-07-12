@@ -5,7 +5,7 @@
 BEGIN {
 my %fatpacked;
 
-$fatpacked{"App/shelly.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'APP_SHELLY';
+$fatpacked{"App/shelly.pm"} = <<'APP_SHELLY';
   package App::shelly;
   
   use strict;
@@ -195,7 +195,7 @@ $fatpacked{"App/shelly.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'APP_
   =cut
 APP_SHELLY
 
-$fatpacked{"App/shelly/command.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'APP_SHELLY_COMMAND';
+$fatpacked{"App/shelly/command.pm"} = <<'APP_SHELLY_COMMAND';
   package App::shelly::command;
   
   use strict;
@@ -278,10 +278,6 @@ $fatpacked{"App/shelly/command.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n"
       }
   }
   
-  sub quit_lisp {
-      $_[0]->add_eval_option('(swank-backend:quit-lisp)');
-  }
-  
   sub run_shelly_command {
       my ($self, $args) = @_;
   
@@ -291,7 +287,6 @@ $fatpacked{"App/shelly/command.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n"
               ( join " ", ( map { s/"/\\"/g;"\"$_\"" } @args ) ),
                   $self->{verbose} ? 't' : 'nil';
       $self->add_eval_option($eval_expr);
-      $self->quit_lisp;
   }
   
   sub arrayfy {
@@ -309,7 +304,7 @@ $fatpacked{"App/shelly/command.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n"
   1;
 APP_SHELLY_COMMAND
 
-$fatpacked{"App/shelly/config.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'APP_SHELLY_CONFIG';
+$fatpacked{"App/shelly/config.pm"} = <<'APP_SHELLY_CONFIG';
   package App::shelly::config;
   
   use strict;
@@ -367,7 +362,7 @@ $fatpacked{"App/shelly/config.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".
   1;
 APP_SHELLY_CONFIG
 
-$fatpacked{"Exporter.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'EXPORTER';
+$fatpacked{"Exporter.pm"} = <<'EXPORTER';
   package Exporter;
   
   require 5.006;
@@ -961,7 +956,7 @@ $fatpacked{"Exporter.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'EXPORT
   
 EXPORTER
 
-$fatpacked{"Exporter/Heavy.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'EXPORTER_HEAVY';
+$fatpacked{"Exporter/Heavy.pm"} = <<'EXPORTER_HEAVY';
   package Exporter::Heavy;
   
   use strict;
@@ -1212,7 +1207,7 @@ $fatpacked{"Exporter/Heavy.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'
   1;
 EXPORTER_HEAVY
 
-$fatpacked{"Exporter/Lite.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'EXPORTER_LITE';
+$fatpacked{"Exporter/Lite.pm"} = <<'EXPORTER_LITE';
   package Exporter::Lite;
   
   require 5.004;
@@ -1411,7 +1406,7 @@ $fatpacked{"Exporter/Lite.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'E
   =cut
 EXPORTER_LITE
 
-$fatpacked{"Path/Class.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH_CLASS';
+$fatpacked{"Path/Class.pm"} = <<'PATH_CLASS';
   use strict;
   
   package Path::Class;
@@ -1612,7 +1607,7 @@ $fatpacked{"Path/Class.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH
   =cut
 PATH_CLASS
 
-$fatpacked{"Path/Class/Dir.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH_CLASS_DIR';
+$fatpacked{"Path/Class/Dir.pm"} = <<'PATH_CLASS_DIR';
   use strict;
   
   package Path::Class::Dir;
@@ -2445,7 +2440,7 @@ $fatpacked{"Path/Class/Dir.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'
   =cut
 PATH_CLASS_DIR
 
-$fatpacked{"Path/Class/Entity.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH_CLASS_ENTITY';
+$fatpacked{"Path/Class/Entity.pm"} = <<'PATH_CLASS_ENTITY';
   use strict;
   
   package Path::Class::Entity;
@@ -2565,7 +2560,7 @@ $fatpacked{"Path/Class/Entity.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".
   =cut
 PATH_CLASS_ENTITY
 
-$fatpacked{"Path/Class/File.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'PATH_CLASS_FILE';
+$fatpacked{"Path/Class/File.pm"} = <<'PATH_CLASS_FILE';
   use strict;
   
   package Path::Class::File;
@@ -3026,7 +3021,7 @@ $fatpacked{"Path/Class/File.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<
   =cut
 PATH_CLASS_FILE
 
-$fatpacked{"lib/core/only.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'LIB_CORE_ONLY';
+$fatpacked{"lib/core/only.pm"} = <<'LIB_CORE_ONLY';
   package lib::core::only;
   
   use strict;
@@ -3129,7 +3124,7 @@ $fatpacked{"lib/core/only.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'L
   1;
 LIB_CORE_ONLY
 
-$fatpacked{"local/lib.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'LOCAL_LIB';
+$fatpacked{"local/lib.pm"} = <<'LOCAL_LIB';
   package local::lib;
   use 5.006;
   use strict;
@@ -4561,37 +4556,24 @@ LOCAL_LIB
 
 s/^  //mg for values %fatpacked;
 
-my $class = 'FatPacked::'.(0+\%fatpacked);
-no strict 'refs';
-*{"${class}::files"} = sub { keys %{$_[0]} };
-
-if ($] < 5.008) {
-  *{"${class}::INC"} = sub {
-     if (my $fat = $_[0]{$_[1]}) {
-       return sub {
-         return 0 unless length $fat;
-         $fat =~ s/^([^\n]*\n?)//;
-         $_ = $1;
-         return 1;
-       };
-     }
-     return;
-  };
-}
-
-else {
-  *{"${class}::INC"} = sub {
-    if (my $fat = $_[0]{$_[1]}) {
-      open my $fh, '<', \$fat
-        or die "FatPacker error loading $_[1] (could be a perl installation issue?)";
-      return $fh;
+unshift @INC, sub {
+  if (my $fat = $fatpacked{$_[1]}) {
+    if ($] < 5.008) {
+      return sub {
+        return 0 unless length $fat;
+        $fat =~ s/^([^\n]*\n?)//;
+        $_ = $1;
+        return 1;
+      };
     }
-    return;
-  };
-}
+    open my $fh, '<', \$fat
+      or die "FatPacker error loading $_[1] (could be a perl installation issue?)";
+    return $fh;
+  }
+  return
+};
 
-unshift @INC, bless \%fatpacked, $class;
-  } # END OF FATPACK CODE
+} # END OF FATPACK CODE
 
 use strict;
 use warnings;

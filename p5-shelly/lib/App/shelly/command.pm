@@ -80,10 +80,6 @@ sub load_libraries {
     }
 }
 
-sub quit_lisp {
-    $_[0]->add_eval_option('(swank-backend:quit-lisp)');
-}
-
 sub run_shelly_command {
     my ($self, $args) = @_;
 
@@ -93,7 +89,6 @@ sub run_shelly_command {
             ( join " ", ( map { s/"/\\"/g;"\"$_\"" } @args ) ),
                 $self->{verbose} ? 't' : 'nil';
     $self->add_eval_option($eval_expr);
-    $self->quit_lisp;
 }
 
 sub arrayfy {
