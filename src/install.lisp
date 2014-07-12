@@ -127,7 +127,7 @@ Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
                           '(require (quote asdf))
 
                           *eval-option*
-                          `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
+                          `(push ,(merge-pathnames ".shelly/shelly/" (user-homedir-pathname)) asdf:*central-registry*)
 
                           *eval-option*
                           (format nil
