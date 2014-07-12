@@ -87,13 +87,7 @@ You can install a specific version by using \"--version\"."
                       shelly-dir))
     (dump-core :quit-lisp nil))
 
-  (format t "~&
-Successfully installed!
-Add this to your shell rc file (\".bashrc\", \".zshrc\" and so on).
-
-    PATH=$HOME/.shelly/bin:$PATH
-
-"))
+  (format t "~&Successfully installed!~%"))
 
 (defun dumped-core-path ()
   (merge-pathnames (format nil "dumped-cores/~A.core"

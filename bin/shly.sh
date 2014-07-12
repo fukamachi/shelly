@@ -1,6 +1,6 @@
 #!/bin/sh -
 
-SHELLY_HOME=$HOME/.shelly
+SHELLY_HOME=${SHELLY_HOME:-$HOME/.shelly}
 load_config() {
     if [ -z "$SHELLY_VERSION" ]; then
         . "$SHELLY_HOME/config.sh"
@@ -65,7 +65,7 @@ run_shelly_command() {
 }
 
 load_shelly() {
-    shelly_path=${SHELLY_PATH:-$HOME/.shelly}
+    shelly_path=${SHELLY_PATH:-$SHELLY_HOME/shelly/}
     init_cmd="-e"$'\n'"(require (quote asdf))"
     init_cmd="$init_cmd"$'\n'"-e"$'\n'"(push (truename \"$shelly_path\") asdf:*central-registry*)"
     read -r -d '' cmd_load_shelly <<EOF
@@ -182,8 +182,13 @@ case "$action" in
         if [ -z "$SHELLY_PATH" ] && [ -f "$dumped_core_path" ]; then
             load_core "$dumped_core_path"
         else
-            if [ -z "$SHELLY_PATH" ] && [ expr "$LISP_IMPL" : '{sbcl,clisp,ccl,alisp}*' ]; then
-                echo "Warning: Core image wasn't found for $LISP_IMPL. It is probably slow, isn't it? Try \"shly dump-core\"."
+            if [ -z "$SHELLY_PATH" ]; then
+                load_cim_config
+                case "$LISP_IMPL" in
+                    sbcl*|clisp*|ccl*|alisp*)
+                        echo "Warning: Core image wasn't found for $LISP_IMPL. It is probably slow, isn't it? Try \"shly dump-core\"."
+                        ;;
+                esac
             fi
 
             load_shelly
@@ -235,4 +240,28 @@ Options:
 EOF
 fi
 
-exec cl $cmd
+if [ "$action" = "install" ]; then
+    sh cl $cmd
+    if expr "$SHELL" : '.*sh' > /dev/null 2>&1; then
+        rc="SHELLY_HOME=$SHELLY_HOME; [ -s \"\$SHELLY_HOME/shelly/init.sh\" ] && . \"\$SHELLY_HOME/shelly/init.sh\""
+        case "$SHELL" in
+            */bash) rcfile="$HOME/.bashrc" ;;
+            */zsh)  rcfile="$HOME/.zshrc" ;;
+            */sh)   rcfile="$HOME/.profile" ;;
+            *) ;;
+        esac
+    fi
+
+    if [ -n "$rcfile" ] && [ -e "$rcfile" ] && ! grep -F "$rc" "$rcfile" > /dev/null 2>&1; then
+        cat <<EOF
+
+Adding the following settings into your $rcfile:
+
+    $rc
+
+EOF
+        echo "$rc" >> "$rcfile"
+    fi
+else
+    exec cl $cmd
+fi
