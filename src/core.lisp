@@ -44,44 +44,47 @@
   (when verbose
     (format *debug-io* "~&;-> ~S~%" expr))
 
-  (let ((expr (shelly.core::read expr))
-        (system-threads #+thread-support (bt:all-threads)
-                        #-thread-support nil))
-    (labels ((alive-user-threads ()
-               (remove-if-not #'bt:thread-alive-p
-                              (set-difference
-                               #+thread-support (bt:all-threads)
-                               #-thread-support nil
-                               system-threads)))
-             (wait-user-threads ()
-               (let
-                   #+ccl ((ccl::*invoke-debugger-hook-on-interrupt* t)
-                          (*debugger-hook* (lambda () (ccl:quit))))
-                 #-ccl ()
-                 (map nil #'bt:join-thread (alive-user-threads)))))
-      (when verbose
-        (format *debug-io* "~&;-> ~S~%" expr))
+  (handler-case
+      (let ((expr (shelly.core::read expr))
+            (system-threads #+thread-support (bt:all-threads)
+                            #-thread-support nil))
+        (labels ((alive-user-threads ()
+                   (remove-if-not #'bt:thread-alive-p
+                                  (set-difference
+                                   #+thread-support (bt:all-threads)
+                                   #-thread-support nil
+                                   system-threads)))
+                 (wait-user-threads ()
+                   (let
+                       #+ccl ((ccl::*invoke-debugger-hook-on-interrupt* t)
+                              (*debugger-hook* (lambda () (ccl:quit))))
+                     #-ccl ()
+                     (map nil #'bt:join-thread (alive-user-threads)))))
+          (when verbose
+            (format *debug-io* "~&;-> ~S~%" expr))
 
-      (let ((result
-              (multiple-value-list
-               (handler-case (let ((*package* (find-package :cl-user)))
-                               (eval expr))
-                 (undefined-function (c)
-                   (let ((funcname (condition-undefined-function-name c)))
-                     (if (string-equal funcname (car expr))
-                         (error 'shelly-command-not-found-error
-                                :command funcname)
-                         (error c)))
-                   (values))))))
-        (when result
-          (shelly.core::print (car result))))
+          (let ((result
+                  (multiple-value-list
+                   (handler-case (let ((*package* (find-package :cl-user)))
+                                   (eval expr))
+                     (undefined-function (c)
+                       (let ((funcname (condition-undefined-function-name c)))
+                         (if (string-equal funcname (car expr))
+                             (error 'shelly-command-not-found-error
+                                    :command funcname)
+                             (error c)))
+                       (values))))))
+            (when result
+              (shelly.core::print (car result))))
 
-      (fresh-line)
+          (fresh-line)
 
-      (handler-case (wait-user-threads)
-        (condition (e)
-          (princ e)
-          (terminate))))))
+          (handler-case (wait-user-threads)
+            (condition (e)
+              (princ e)
+              (terminate)))))
+    (shelly-command-not-found-error (e)
+      (format *error-output* "~&Error: ~A~%" e))))
 
 (defun prompt ()
   (fresh-line)
