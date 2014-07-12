@@ -28,7 +28,7 @@
                  (:file "core" :depends-on ("impl" "error" "util"))
                  (:file "install" :depends-on ("impl" "versions" "util"))
                  (:file "versions")
-                 (:file "util")
+                 (:file "util" :depends-on ("error" "impl"))
                  (:file "impl")
                  (:file "error"))))
   :description "Run Common Lisp from shell easily."

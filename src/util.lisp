@@ -1,6 +1,10 @@
 (in-package :cl-user)
 (defpackage shelly.util
   (:use :cl)
+  (:import-from :shelly.error
+                :shelly-command-not-found-error)
+  (:import-from :shelly.impl
+                :condition-undefined-function-name)
   (:import-from :cl-fad
                 :file-exists-p
                 :walk-directory
@@ -124,6 +128,9 @@
       #+clisp (ext:arglist fname)
       #+ecl (ext:function-lambda-list fname)
       #+abcl (sys::arglist fname)
+    (undefined-function (c)
+      (error 'shelly-command-not-found-error
+             :command (condition-undefined-function-name c)))
     (simple-error () :not-available))
   #-(or sbcl ccl allegro clisp ecl) :not-available)
 
