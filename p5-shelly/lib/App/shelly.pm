@@ -56,6 +56,11 @@ sub doit {
         exit;
     }
 
+    unless (exists $ENV{CIM_HOME}) {
+        print STDERR "Error: CIM_HOME is not set.\nIf you've never installed CIM, install it from https://github.com/KeenS/CIM first.\n";
+        exit 1;
+    }
+
     my $command = $self->build_command;
 
     if ( $self->{debug} ) {
