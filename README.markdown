@@ -42,20 +42,27 @@ Shelly treats general functions as its sub-commands, so you don't even need to w
 
 Command-line options and arguments will be delivered to a function.
 
-Shelly reduces the startup time by storing a Lisp core image. In a simple case, the execution is about 10 times faster than CIM's `cl` command and even 9 times faster than SBCL at the maximum.
+Shelly reduces the startup time by storing a Lisp core image. In a simple case, the execution is about 10 times faster than CIM's `cl` command and even 9 times faster than SBCL (with Quicklisp) at the maximum.
 
     # Uses SBCL v1.2.1, Shelly v0.7.0, CIM v1.0.0
     $ time shly + 1 2
     3
     shly + 1 2  0.12s user 0.04s system 97% cpu 0.156 total
     
+    # CIM
     $ time cl --eval '(princ (+ 1 2))'
     3
     cl --eval '(princ (+ 1 2))'  1.18s user 0.34s system 99% cpu 1.530 total
     
+    # SBCL with Quicklisp
     $ time sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'
     3
     sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'  1.06s user 0.34s system 99% cpu 1.402 total
+    
+    # SBCL without Quicklisp
+    $ time sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'
+    3
+    sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'  0.01s user 0.01s system 90% cpu 0.014 total
 
 ## How does it work
 
