@@ -37,7 +37,7 @@
 (defun shelly.core::print (result)
   (typecase result
     (string (princ result))
-    (T (pprint result))))
+    (T (princ result))))
 
 @export
 (defun interpret (expr &key verbose)
