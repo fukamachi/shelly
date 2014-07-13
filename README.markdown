@@ -331,4 +331,4 @@ Copyright (c) 2012-2014 Eitaro Fukamachi and [contributors](https://github.com/f
 
 ## License
 
-Licensed under the BSD (2-Clause) License.
+Licensed under the BSD (2-Clause) License. See LICENSE.
