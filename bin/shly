@@ -228,7 +228,7 @@ fi
 if [ "$help" = 1 ]; then
     cat <<EOF
 Usage:
-    $ shly.sh [options] [atom...]
+    $ shly [options] [atom...]
 
 Options:
     -h, --help
