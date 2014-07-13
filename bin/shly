@@ -6,7 +6,7 @@ BASENAME=$(basename $0)
 : ${SHELLY_HOME:="$HOME/.shelly"}
 load_config() {
     if [ -z "$SHELLY_VERSION" ]; then
-        . "$SHELLY_HOME/config.sh"
+        . "$SHELLY_HOME/config"
         export SHELLY_VERSION
     fi
 }

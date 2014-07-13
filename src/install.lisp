@@ -59,12 +59,6 @@ You can install a specific version by using \"--version\"."
                          :direction :output
                          :if-does-not-exist :create
                          :if-exists :supersede)
-      (format out "# -*- mode: perl -*-~2%{~%    version => \"~A\",~%}~%"
-              version))
-    (with-open-file (out (merge-pathnames "config.sh" home-config-path)
-                         :direction :output
-                         :if-does-not-exist :create
-                         :if-exists :supersede)
       (format out "SHELLY_VERSION=\"~A\"" version))
 
     (dolist (dir '("dumped-cores/" "bin/"))
