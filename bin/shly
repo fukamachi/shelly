@@ -1,6 +1,6 @@
 #!/bin/sh -
 
-SHELLY_HOME=${SHELLY_HOME:-$HOME/.shelly}
+: ${SHELLY_HOME:="$HOME/.shelly"}
 load_config() {
     if [ -z "$SHELLY_VERSION" ]; then
         . "$SHELLY_HOME/config.sh"
@@ -65,7 +65,12 @@ run_shelly_command() {
 }
 
 load_shelly() {
-    shelly_path=${SHELLY_PATH:-$SHELLY_HOME/shelly/}
+    if [ -z "$SHELLY_PATH" ]; then
+        shelly_path="$SHELLY_HOME/shelly/"
+    else
+        shelly_path="$SHELLY_PATH"
+    fi
+
     init_cmd="-e"$'\n'"(require (quote asdf))"
     if [ -d "$shelly_path" ]; then
         init_cmd="$init_cmd"$'\n'"-e"$'\n'"(push (truename \"$shelly_path\") asdf:*central-registry*)"

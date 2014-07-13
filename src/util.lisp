@@ -1,6 +1,8 @@
 (in-package :cl-user)
 (defpackage shelly.util
   (:use :cl)
+  (:import-from :asdf
+                :getenv)
   (:import-from :shelly.error
                 :shelly-command-not-found-error)
   (:import-from :shelly.impl
@@ -12,6 +14,15 @@
 (in-package :shelly.util)
 
 (cl-annot:enable-annot-syntax)
+
+@export
+(defun shelly-home ()
+  (labels ((ensure-ends-slash (str)
+             (if (char= (aref str (1- (length str))) #\/)
+                 str
+                 (concatenate 'string str "/"))))
+    (or (ensure-ends-slash (getenv "SHELLY_HOME"))
+        (merge-pathnames ".shelly" (user-homedir-pathname)))))
 
 @export
 (defun shadowing-use-package (packages-to-use &optional (package (find-package :cl-user)))
@@ -90,12 +101,10 @@
 
 @export
 (defun load-global-shlyfile (&key verbose)
-  (let* ((shelly-home
-          (merge-pathnames ".shelly/" (user-homedir-pathname)))
-         (shlyfile
+  (let ((shlyfile
           (car (member-if #'fad:file-exists-p
                           (mapcar #'(lambda (path)
-                                      (merge-pathnames path shelly-home))
+                                      (merge-pathnames path (shelly-home)))
                                   '(#P"shlyfile" #P "shlyfile.lisp" #P"shlyfile.cl"))))))
     (when shlyfile
       (load-shlyfile shlyfile))))

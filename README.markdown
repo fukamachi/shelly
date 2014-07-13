@@ -144,6 +144,12 @@ $ cd shelly
 $ SHELLY_PATH=. bin/shly install
 ```
 
+### Installing to other than ~/.shelly
+
+If you want to install Shelly to the different location, set SHELLY_HOME to the directory path.
+
+    $ curl -L http://shlyfile.org/shly | SHELLY_HOME=~/.shly /bin/sh
+
 ## Configuration
 
 If you use Bash or Zsh, the initialization code will be appended into your .bashrc or .zshrc automatically.

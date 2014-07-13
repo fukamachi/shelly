@@ -15,6 +15,7 @@
   (:import-from :shelly.versions
                 :download-version)
   (:import-from :shelly.util
+                :shelly-home
                 :shadowing-use-package
                 :copy-directory
                 :terminate))
@@ -28,8 +29,7 @@
 You can install a specific version by using \"--version\"."
   (let ((shelly-system-path
          (if version
-             (download-version version
-                               (merge-pathnames ".shelly/" (user-homedir-pathname)))
+             (download-version version (shelly-home))
              (asdf:system-source-directory :shelly))))
     (when version
       (push shelly-system-path asdf:*central-registry*)
@@ -41,8 +41,7 @@ You can install a specific version by using \"--version\"."
   (values))
 
 (defun install-from-path (shelly-system-path)
-  (let* ((home-config-path
-          (merge-pathnames ".shelly/" (user-homedir-pathname)))
+  (let* ((home-config-path (shelly-home))
          (version (slot-value (asdf:find-system :shelly)
                               'asdf:version)))
 
@@ -94,7 +93,7 @@ You can install a specific version by using \"--version\"."
 (defun dumped-core-path ()
   (merge-pathnames (format nil "dumped-cores/~A.core"
                            (getenv "LISP_IMPL"))
-                   (merge-pathnames ".shelly/" (user-homedir-pathname))))
+                   (shelly-home)))
 
 @export
 (defun dump-core (&key (quit-lisp t) load-systems (output (dumped-core-path)))
@@ -120,7 +119,7 @@ You can install a specific version by using \"--version\"."
                           '(require (quote asdf))
 
                           *eval-option*
-                          `(push ,(merge-pathnames ".shelly/shelly/" (user-homedir-pathname)) asdf:*central-registry*)
+                          `(push ,(shelly-home) asdf:*central-registry*)
 
                           *eval-option*
                           (format nil
