@@ -1,5 +1,8 @@
 #!/bin/sh -
 
+BASENAME=$(basename $0)
+[ "$BASENAME" != "shly" ] && DOWNLOADED=1;
+
 : ${SHELLY_HOME:="$HOME/.shelly"}
 load_config() {
     if [ -z "$SHELLY_VERSION" ]; then
@@ -111,7 +114,10 @@ check_shelly_version() {
 
 verbose="nil"
 
-if [ "$#" = 0 ]; then
+if [ "$DOWNLOADED" = 1 ]; then
+    action="install"
+    run_shelly_command "install"
+elif [ "$#" = 0 ]; then
     help=1
     action="shelly::help"
     run_shelly_command "shelly::help"
