@@ -21,7 +21,7 @@
              (if (char= (aref str (1- (length str))) #\/)
                  str
                  (concatenate 'string str "/"))))
-    (or (ensure-ends-slash (getenv "SHELLY_HOME"))
+    (or (pathname (ensure-ends-slash (getenv "SHELLY_HOME")))
         (merge-pathnames ".shelly" (user-homedir-pathname)))))
 
 @export
