@@ -97,7 +97,6 @@ EOF
 
 load_core() {
     init_cmd="--core"$'\n'"$1"
-    init_cmd="$init_cmd"$'\n'"-e"$'\n'"(shelly.util:shadowing-use-package :shelly)"
 }
 
 check_shelly_version() {

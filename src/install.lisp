@@ -92,7 +92,7 @@ You can install a specific version by using \"--version\"."
 @export
 (defun dump-core (&key (quit-lisp t) load-systems (output (dumped-core-path)))
   "Dump Lisp core image file for faster startup."
-  (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~S'"
+  (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~S' ~A '~S'"
                           *current-lisp-path*
 
                           #+ccl "--no-init"
@@ -120,6 +120,9 @@ You can install a specific version by using \"--version\"."
                                   "(let (#+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
                                   (cons :shelly
                                         load-systems))
+
+                          *eval-option*
+                          `(shelly.util:shadowing-use-package :shelly)
 
                           *eval-option*
                           `(shelly.impl:save-core-image ,(princ-to-string output)))
