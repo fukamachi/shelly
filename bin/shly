@@ -260,7 +260,7 @@ EOF
 fi
 
 if [ "$action" = "install" ]; then
-    sh cl $cmd
+    sh cl $cmd || exit 1
     if expr "$SHELL" : '.*sh' > /dev/null 2>&1; then
         rc="SHELLY_HOME=$SHELLY_HOME; [ -s \"\$SHELLY_HOME/shelly/init.sh\" ] && . \"\$SHELLY_HOME/shelly/init.sh\""
         case "$SHELL" in
