@@ -119,7 +119,7 @@ You can install a specific version by using \"--version\"."
                           '(require (quote asdf))
 
                           *eval-option*
-                          `(push ,(shelly-home) asdf:*central-registry*)
+                          `(push ,(merge-pathnames "shelly/" (shelly-home)) asdf:*central-registry*)
 
                           *eval-option*
                           (format nil
