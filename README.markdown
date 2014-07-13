@@ -28,7 +28,11 @@ For example, Common Lisp isn't good for writing a small script. No common way to
 
 Shelly is trying to solve these problems.
 
+### 1. Implementation independent
+
 As Shelly uses CIM's `cl` command behind it, it should work with SBCL, Clozure CL, Allegro CL, ABCL, GNU CLISP and ECL.
+
+### 2. Function as a shell command
 
 Shelly treats general functions as its sub-commands, so you don't even need to write a script in most cases.
 
@@ -41,6 +45,8 @@ Shelly treats general functions as its sub-commands, so you don't even need to w
     $ shly myapp:do-something --verbose t
 
 Command-line options and arguments will be delivered to a function.
+
+### 3. Fast startup time
 
 Shelly reduces the startup time by storing a Lisp core image. In a simple case, the execution is about 10 times faster than CIM's `cl` command and even 9 times faster than SBCL (with Quicklisp) at the maximum.
 
