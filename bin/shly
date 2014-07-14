@@ -106,12 +106,12 @@ load_library() {
 run_shelly_command() {
     list=
     for a in "$@"; do
-        list="$list \"$a\""
+        list="$list \""$(echo $a | sed -e 's/"/\\\\"/g')"\""
     done
     if [ -z "$main_cmd" ]; then
         main_cmd=$(printf -- "$eval_option\n(shelly.core::interpret (list$list) :verbose $verbose)")
     else
-        main_cmd=$(printf -- "$main_cmd\n$eval_option\n(shelly.core::interpret (list$list) :verbose $verbose)")
+        main_cmd=$(printf -- "%s\n$eval_option\n(shelly.core::interpret (list$list) :verbose $verbose)" "$main_cmd")
     fi
 }
 
@@ -259,11 +259,11 @@ case "$action" in
         ;;
 esac
 
-main_cmd=$(printf -- "$main_cmd\n$eval_option\n(shelly.util::terminate)")
+main_cmd=$(printf -- "%s\n$eval_option\n(shelly.util::terminate)" "$main_cmd")
 
 cmd=$(printf -- "$impl_cmd\n$init_cmd")
 [ -n "$option_cmd" ] && cmd=$(printf -- "$cmd\n$option_cmd")
-cmd=$(printf -- "$cmd\n$main_cmd")
+cmd=$(printf -- "$cmd\n%s" "$main_cmd")
 IFS='
 '
 if [ "$debug" = 1 ]; then
