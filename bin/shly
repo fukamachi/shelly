@@ -117,7 +117,7 @@ run_shelly_command() {
 }
 
 load_quicklisp() {
-    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(load \"$CIM_HOME/quicklisp/setup.lisp\")")
+    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(let ((*load-verbose* nil)) (load \"$CIM_HOME/quicklisp/setup.lisp\"))")
 }
 
 load_shelly() {
