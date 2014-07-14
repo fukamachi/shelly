@@ -30,7 +30,7 @@ Shelly is trying to solve these problems.
 
 ### 1. Implementation independent
 
-As Shelly uses CIM's `cl` command behind it, it should work with SBCL, Clozure CL, Allegro CL, ABCL, GNU CLISP and ECL.
+As Shelly uses CIM behind it, it should work with SBCL, Clozure CL, Allegro CL, ABCL, GNU CLISP and ECL.
 
 ### 2. Function as a shell command
 
