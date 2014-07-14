@@ -125,7 +125,6 @@
 
 @export
 (defun arglist (fname)
-  #+sbcl (require 'sb-introspect)
   #+(or sbcl ccl allegro clisp ecl)
   (handler-case
       #+sbcl (if (find-package :sb-introspect)

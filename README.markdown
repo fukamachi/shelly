@@ -53,22 +53,22 @@ Shelly reduces the startup time by storing a Lisp core image. In a simple case, 
     # Uses SBCL v1.2.1, Shelly v0.7.0, CIM v1.0.0
     $ time shly + 1 2
     3
-    shly + 1 2  0.12s user 0.04s system 97% cpu 0.156 total
+    shly + 1 2  0.05s user 0.03s system 96% cpu 0.086 total
     
     # CIM
     $ time cl --eval '(princ (+ 1 2))'
     3
-    cl --eval '(princ (+ 1 2))'  1.18s user 0.34s system 99% cpu 1.530 total
+    cl --eval '(princ (+ 1 2))'  1.23s user 0.37s system 99% cpu 1.597 total
     
     # SBCL with Quicklisp
     $ time sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'
     3
-    sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'  1.06s user 0.34s system 99% cpu 1.402 total
+    sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'  1.12s user 0.37s system 99% cpu 1.499 total
     
     # SBCL without Quicklisp
     $ time sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'
     3
-    sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'  0.01s user 0.01s system 90% cpu 0.014 total
+    sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'  0.01s user 0.01s system 87% cpu 0.014 total
 
 ## How does it work
 
