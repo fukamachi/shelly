@@ -72,6 +72,7 @@ load_config() {
     if [ -z "$SHELLY_VERSION" ]; then
         . "$SHELLY_HOME/config"
         export SHELLY_VERSION
+        export QUICKLISP_HOME
     fi
 }
 
@@ -117,7 +118,10 @@ run_shelly_command() {
 }
 
 load_quicklisp() {
-    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(let ((*load-verbose* nil)) (load \"$CIM_HOME/quicklisp/setup.lisp\"))")
+    load_config
+    if [ -n "$QUICKLISP_HOME" ]; then
+        init_cmd=$(printf -- "$init_cmd\n$eval_option\n(let ((*load-verbose* nil)) (load \"${QUICKLISP_HOME}setup.lisp\"))")
+    fi
 }
 
 load_shelly() {

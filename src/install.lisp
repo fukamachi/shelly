@@ -78,7 +78,10 @@ You can install a specific version by using \"--version\"."
                          :direction :output
                          :if-does-not-exist :create
                          :if-exists :supersede)
-      (format out "SHELLY_VERSION=\"~A\"" version))
+      (format out "SHELLY_VERSION=\"~A\"~%QUICKLISP_HOME=~:[~;~:*\"~A\"~]~%"
+              version
+              #+quicklisp ql:*quicklisp-home*
+              #-quicklisp nil))
 
     (dolist (dir '("dumped-cores/" "bin/"))
       (ensure-directories-exist
