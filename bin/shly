@@ -167,10 +167,6 @@ verbose="nil"
 if [ "$DOWNLOADED" = 1 ]; then
     action="install"
     run_shelly_command "install"
-elif [ "$#" = 0 ]; then
-    help=1
-    action="shelly::help"
-    run_shelly_command "shelly::help"
 fi
 
 for ARG; do
@@ -237,6 +233,12 @@ for ARG; do
             ;;
     esac
 done
+
+if [ -z "$action" ]; then
+    help=1
+    action="shelly::help"
+    run_shelly_command "shelly::help"
+fi
 
 case "$action" in
     install)
