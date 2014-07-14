@@ -189,7 +189,7 @@ for ARG; do
         --version|-V)
             load_config
             echo "Shelly ver $SHELLY_VERSION"
-            break
+            exit
             ;;
         --verbose)
             verbose="t"
