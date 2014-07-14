@@ -155,13 +155,6 @@ load_core() {
     load_quicklisp
 }
 
-check_shelly_version() {
-    load_config
-    if [ "$SHELLY_VERSION" ]; then
-        add_eval_option "(shelly.util::check-version \"$SHELLY_VERSION\")"
-    fi
-}
-
 
 #====================
 # Main
@@ -249,7 +242,6 @@ case "$action" in
         ;;
     dump-core)
         load_shelly
-        check_shelly_version
         ;;
     *)
         dumped_core_path=$(dumped_core_path)
@@ -267,7 +259,6 @@ case "$action" in
             load_shelly
         fi
 
-        check_shelly_version
         add_eval_option "(shelly.util::load-global-shlyfile)"
         if [ -z "$shlyfile" ]; then
             add_eval_option "(shelly.util::load-local-shlyfile)"
