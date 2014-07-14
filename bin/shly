@@ -24,6 +24,8 @@ case "$LISP_IMPL" in
         core_option="--core"
         eval_option="--eval"
         impl_cmd="--noinform"$'\n'"--no-sysinit"$'\n'"--no-userinit"$'\n'"--non-interactive"
+        SBCL_HOME="$CIM_HOME/impls/$LISP_IMPL/lib/sbcl"
+        export SBCL_HOME
         ;;
     ccl*)
         core_option="-I"

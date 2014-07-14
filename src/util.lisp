@@ -125,12 +125,11 @@
 
 @export
 (defun arglist (fname)
+  #+sbcl (require 'sb-introspect)
   #+(or sbcl ccl allegro clisp ecl)
   (handler-case
-      #+sbcl (if (find-package :sb-introspect)
-                 (funcall (intern (string :function-arglist) :sb-introspect)
-                          fname)
-                 :not-available)
+      #+sbcl (funcall (intern (string :function-arglist) :sb-introspect)
+                      fname)
       #+ccl (ccl:arglist fname)
       #+allegro (excl:arglist fname)
       #+clisp (ext:arglist fname)
