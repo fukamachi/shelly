@@ -132,7 +132,7 @@ load_shelly() {
         init_cmd=$(printf -- "$init_cmd\n$eval_option\n(push (truename \"$shelly_path\") asdf:*central-registry*)")
     fi
     load_quicklisp
-    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(ql:quickload :shelly)")
+    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable))) (ql:quickload :shelly))")
     init_cmd=$(printf -- "$init_cmd\n$eval_option\n(shelly.util::shadowing-use-package :shelly)")
 }
 
