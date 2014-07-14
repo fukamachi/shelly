@@ -28,10 +28,13 @@ case "$LISP_IMPL" in
         core_option="--core"
         eval_option="--eval"
         impl_cmd=$(printf -- "--noinform\n--no-sysinit\n--no-userinit\n--non-interactive")
-        if ! expr "$LISP_IMPL" : '.*-system' >/dev/null 2>&1; then
+        if [ "$LISP_IMPL" = "sbcl-system" ]; then
+            sbcl_base=$(expr `ls -l "$CIM_HOME/bin/sbcl-system" | awk '{print $NF}'` : '\(.*\)/bin/sbcl')
+            SBCL_HOME="${sbcl_base}/lib/sbcl"
+        else
             SBCL_HOME="$CIM_HOME/impls/$LISP_IMPL/lib/sbcl"
-            export SBCL_HOME
         fi
+        export SBCL_HOME
         ;;
     ccl*)
         core_option="-I"
@@ -62,11 +65,7 @@ case "$LISP_IMPL" in
         ;;
 esac
 
-if expr "$LISP_IMPL" : '.*-system' >/dev/null 2>&1; then
-    LISP_BINARY="$CIM_HOME/bin/"$(echo $LISP_IMPL | sed -e 's/-system$//')
-else
-    LISP_BINARY="$CIM_HOME/bin/$LISP_IMPL"
-fi
+LISP_BINARY="$CIM_HOME/bin/"$(echo $LISP_IMPL | sed -e 's/-system$//')
 
 : ${SHELLY_HOME:="$HOME/.shelly"}
 load_config() {
