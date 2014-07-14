@@ -9,9 +9,13 @@ if [ -z "$CIM_HOME" ]; then
     exit 1
 fi
 
-if [ ! "$LISP_IMPL" ]; then
+if [ -z "$LISP_IMPL" ]; then
+    : ${CIM_ID:="$$"}
     if [ -s "$CIM_HOME/config/current.$CIM_ID" ]; then
         . "$CIM_HOME/config/current.$CIM_ID"
+        export LISP_IMPL
+    elif [ -s "$CIM_HOME/config/default" ]; then
+        . "$CIM_HOME/config/default"
         export LISP_IMPL
     else
         echo "Error: LISP_IMPL is not set." 1>&2
@@ -24,8 +28,10 @@ case "$LISP_IMPL" in
         core_option="--core"
         eval_option="--eval"
         impl_cmd=$(printf -- "--noinform\n--no-sysinit\n--no-userinit\n--non-interactive")
-        SBCL_HOME="$CIM_HOME/impls/$LISP_IMPL/lib/sbcl"
-        export SBCL_HOME
+        if ! expr "$LISP_IMPL" : '.*-system' >/dev/null 2>&1; then
+            SBCL_HOME="$CIM_HOME/impls/$LISP_IMPL/lib/sbcl"
+            export SBCL_HOME
+        fi
         ;;
     ccl*)
         core_option="-I"
@@ -56,7 +62,11 @@ case "$LISP_IMPL" in
         ;;
 esac
 
-LISP_BINARY="$CIM_HOME/bin/$LISP_IMPL"
+if expr "$LISP_IMPL" : '.*-system' >/dev/null 2>&1; then
+    LISP_BINARY="$CIM_HOME/bin/"$(echo $LISP_IMPL | sed -e 's/-system$//')
+else
+    LISP_BINARY="$CIM_HOME/bin/$LISP_IMPL"
+fi
 
 : ${SHELLY_HOME:="$HOME/.shelly"}
 load_config() {
