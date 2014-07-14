@@ -100,7 +100,7 @@
       (load-shlyfile shlyfile))))
 
 @export
-(defun load-global-shlyfile (&key verbose)
+(defun load-global-shlyfile ()
   (let ((shlyfile
           (car (member-if #'fad:file-exists-p
                           (mapcar #'(lambda (path)
@@ -126,7 +126,7 @@
 @export
 (defun arglist (fname)
   #+sbcl (require 'sb-introspect)
-  #+(or sbcl ccl allegro clisp ecl)
+  #+(or sbcl ccl allegro clisp ecl abcl)
   (handler-case
       #+sbcl (funcall (intern (string :function-arglist) :sb-introspect)
                       fname)
@@ -143,10 +143,11 @@
       (error 'shelly-command-not-found-error
              :command (condition-undefined-function-name c)))
     (simple-error () :not-available))
-  #-(or sbcl ccl allegro clisp ecl) :not-available)
+  #-(or sbcl ccl allegro clisp ecl abcl) :not-available)
 
 @export
 (defun terminate (&optional (status 0) format-string &rest format-arguments)
+  (declare (ignorable status))
   (when format-string
     (fresh-line *error-output*)
     (apply #'format *error-output* format-string format-arguments)
@@ -157,4 +158,5 @@
   #+clisp (ext:quit status)
   #+cmucl (unix:unix-exit status)
   #+ecl (ext:quit status)
-  #-(or ccl sbcl allegro clisp cmucl ecl) (cl-user::quit))
+  #+abcl (ext:exit :status status)
+  #-(or ccl sbcl allegro clisp cmucl ecl abcl) (cl-user::quit))

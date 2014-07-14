@@ -9,6 +9,7 @@
                 :delete-directory-and-files
                 :walk-directory)
   (:import-from :shelly.impl
+                :*current-lisp-name*
                 :*current-lisp-path*
                 :*eval-option*
                 :save-core-image)
@@ -110,16 +111,20 @@ You can install a specific version by using \"--version\"."
 @export
 (defun dump-core (&key (quit-lisp t) load-systems (output (dumped-core-path)))
   "Dump Lisp core image file for faster startup."
+  (declare (ignorable load-systems output))
+  #-(or sbcl allegro ccl clisp cmu)
+  (when quit-lisp
+    (format *error-output* "~&~A does not support 'dump-core'.~%"
+            *current-lisp-name*))
+  #+(or sbcl allegro ccl clisp cmu)
   (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~S' ~A '~S'"
                           *current-lisp-path*
 
-                          #+ccl "--no-init"
-                          #+sbcl "--no-userinit"
-                          #+allegro "-qq"
-                          #+clisp "-norc"
+                          #+ccl "--no-init --quiet --batch"
+                          #+sbcl "--noinform --no-sysinit --no-userinit --non-interactive"
+                          #+allegro "--qq"
+                          #+clisp "-norc --quiet --silent -on-error exit"
                           #+cmu "-noinit"
-                          #+ecl "-norc"
-                          #-(or ccl sbcl allegro clisp cmu ecl) ""
 
                           *eval-option*
                           #+quicklisp
@@ -135,7 +140,7 @@ You can install a specific version by using \"--version\"."
 
                           *eval-option*
                           (format nil
-                                  "(let (#+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
+                                  "(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
                                   (cons :shelly
                                         load-systems))
 
