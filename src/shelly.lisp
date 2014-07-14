@@ -34,15 +34,20 @@ If `command' is specified, its usage will be displayed."
              (arglist (arglist parsed-command)))
         (format t "~&Usage: ~A ~:[()~;~:*~(~A~)~]~{~&    ~A~}~%"
                 command
-                arglist
+                (if (eq arglist :not-available)
+                    ""
+                    arglist)
                 (ppcre:split "\\n" (documentation parsed-command 'function))))
       (progn
         (format t "~&Built-In Commands:~%")
         (do-external-symbols (symbol :shelly)
-          (format t "~&    ~(~A~) ~:[()~;~:*~(~A~)~]~%~{        ~A~^~%~}~2%"
-                  symbol
-                  (arglist symbol)
-                  (ppcre:split "\\n" (documentation symbol 'function))))
+          (let ((arglist (arglist symbol)))
+            (format t "~&    ~(~A~) ~:[()~;~:*~(~A~)~]~%~{        ~A~^~%~}~2%"
+                    symbol
+                    (if (eq arglist :not-available)
+                        ""
+                        arglist)
+                    (ppcre:split "\\n" (documentation symbol 'function)))))
         (let ((symbols (local-command-symbols)))
           (when symbols
             (format t "~&Local Commands:~%")
