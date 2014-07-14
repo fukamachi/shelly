@@ -268,6 +268,7 @@ Dump Lisp core image file to the current directory. This command takes system na
 * Rewrite "bin/shly" in Shell script.
 * Remove the dependency on SWANK.
 * Allow to specify where to install with `SHELLY_HOME`.
+* Add `upgrade` command.
 
 ### v0.6.0 (Mar 31, 2014)
 

@@ -13,7 +13,8 @@
                 :*eval-option*
                 :save-core-image)
   (:import-from :shelly.versions
-                :download-version)
+                :download-version
+                :find-version)
   (:import-from :shelly.util
                 :shelly-home
                 :shadowing-use-package
@@ -39,6 +40,23 @@ You can install a specific version by using \"--version\"."
     (when version
       (delete-directory-and-files shelly-system-path)))
   (values))
+
+@export
+(defun upgrade ()
+  "Upgrade Shelly to the latest version."
+  (let ((current-version (format nil "v~A"
+                                 (slot-value (asdf:find-system :shelly)
+                                             'asdf:version)))
+        (latest-version (gethash "name" (find-version :latest))))
+    (cond
+      ((string< current-version latest-version)
+       (format *debug-io* "Upgrading Shelly from ~A to ~A."
+               current-version
+               latest-version)
+       (install :version latest-version))
+      (T
+       (format *debug-io* "~&You already have the latest version.~%")))
+    (values)))
 
 (defun install-from-path (shelly-system-path)
   (let* ((home-config-path (shelly-home))

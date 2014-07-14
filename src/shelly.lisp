@@ -7,6 +7,7 @@
                 :run-repl)
   (:import-from :shelly.install
                 :install
+                :upgrade
                 :dump-core
                 :local-dump-core
                 :rm-core)
@@ -17,6 +18,7 @@
                 :arglist)
   (:export :run-repl
            :install
+           :upgrade
            :dump-core
            :local-dump-core
            :rm-core))
