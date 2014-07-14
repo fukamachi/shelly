@@ -200,7 +200,7 @@ for ARG; do
             shift
             ;;
         --file|-f)
-            shlyfile="$1"
+            shlyfile="$2"
             shift 2
             ;;
         -f*)
