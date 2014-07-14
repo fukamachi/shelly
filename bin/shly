@@ -84,11 +84,7 @@ option_cmd=
 main_cmd=
 
 add_option() {
-    if [ -z "$cmd" ]; then
-        option_cmd=$(printf -- "$1\n$2")
-    else
-        option_cmd=$(printf -- "$cmd\n$1\n$2")
-    fi
+    option_cmd=$(printf -- "$option_cmd\n$1\n$2")
 }
 
 add_eval_option() {
@@ -108,11 +104,7 @@ run_shelly_command() {
     for a in "$@"; do
         list="$list \""$(echo $a | sed -e 's/"/\\\\"/g')"\""
     done
-    if [ -z "$main_cmd" ]; then
-        main_cmd=$(printf -- "$eval_option\n(shelly.core::interpret (list$list) :verbose $verbose)")
-    else
-        main_cmd=$(printf -- "%s\n$eval_option\n(shelly.core::interpret (list$list) :verbose $verbose)" "$main_cmd")
-    fi
+    main_cmd=$(printf -- "%s\n$eval_option\n(shelly.core::interpret (list$list) :verbose $verbose)" "$main_cmd")
 }
 
 load_quicklisp() {
@@ -126,7 +118,7 @@ load_shelly() {
         shelly_path="$SHELLY_PATH"
     fi
 
-    init_cmd=$(printf -- "$eval_option\n(require (quote asdf))")
+    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(require (quote asdf))")
     if [ -d "$shelly_path" ]; then
         init_cmd=$(printf -- "$init_cmd\n$eval_option\n(push (truename \"$shelly_path\") asdf:*central-registry*)")
     fi
@@ -261,9 +253,7 @@ esac
 
 main_cmd=$(printf -- "%s\n$eval_option\n(shelly.util::terminate)" "$main_cmd")
 
-cmd=$(printf -- "$impl_cmd\n$init_cmd")
-[ -n "$option_cmd" ] && cmd=$(printf -- "$cmd\n$option_cmd")
-cmd=$(printf -- "$cmd\n%s" "$main_cmd")
+cmd=$(printf -- "$impl_cmd$init_cmd$option_cmd%s" "$main_cmd")
 IFS='
 '
 if [ "$debug" = 1 ]; then
