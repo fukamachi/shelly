@@ -23,14 +23,14 @@ case "$LISP_IMPL" in
     sbcl*)
         core_option="--core"
         eval_option="--eval"
-        impl_cmd="--noinform"$'\n'"--no-sysinit"$'\n'"--no-userinit"$'\n'"--non-interactive"
+        impl_cmd=$(printf -- "--noinform\n--no-sysinit\n--no-userinit\n--non-interactive")
         SBCL_HOME="$CIM_HOME/impls/$LISP_IMPL/lib/sbcl"
         export SBCL_HOME
         ;;
     ccl*)
         core_option="-I"
         eval_option="--eval"
-        impl_cmd="--no-init"$'\n'"--quiet"$'\n'"--batch"
+        impl_cmd=$(printf -- "--no-init\n--quiet\n--batch")
         ;;
     alisp*)
         core_option="-I"
@@ -40,15 +40,15 @@ case "$LISP_IMPL" in
     clisp*)
         core_option="-M"
         eval_option="-x"
-        impl_cmd="-norc"$'\n'"--quiet"$'\n'"--silent"$'\n'"-on-error"$'\n'"exit"
+        impl_cmd=$(printf -- "-norc\n--quiet\n--silent\n-on-error\nexit")
         ;;
     ecl*)
         eval_option="-eval"
-        impl_cmd="-norc"$'\n'"-q"
+        impl_cmd=$(printf -- "-norc\n-q")
         ;;
     abcl*)
         eval_option="--eval"
-        impl_cmd="--noinform"$'\n'"--noinit"$'\n'"--nosystem"$'\n'"--batch"
+        impl_cmd=$(printf -- "--noinform\n--noinit\n--nosystem\n--batch")
         ;;
     *)
         echo "Unknown lisp implementation $LISP_IMPL. Exit." >&2
@@ -80,14 +80,14 @@ dumped_core_path() {
 #====================
 
 init_cmd=
-cmd=
+option_cmd=
 main_cmd=
 
 add_option() {
     if [ -z "$cmd" ]; then
-        cmd="$1"$'\n'"$2"
+        option_cmd=$(printf -- "$1\n$2")
     else
-        cmd="$cmd"$'\n'"$1"$'\n'"$2"
+        option_cmd=$(printf -- "$cmd\n$1\n$2")
     fi
 }
 
@@ -109,14 +109,14 @@ run_shelly_command() {
         list="$list \"$a\""
     done
     if [ -z "$main_cmd" ]; then
-        main_cmd="$eval_option"$'\n'"(shelly.core::interpret (list$list) :verbose $verbose)"
+        main_cmd=$(printf -- "$eval_option\n(shelly.core::interpret (list$list) :verbose $verbose)")
     else
-        main_cmd="$main_cmd"$'\n'"$eval_option"$'\n'"(shelly.core::interpret (list$list) :verbose $verbose)"
+        main_cmd=$(printf -- "$main_cmd\n$eval_option\n(shelly.core::interpret (list$list) :verbose $verbose)")
     fi
 }
 
 load_quicklisp() {
-    init_cmd="$init_cmd"$'\n'"$eval_option"$'\n'"(load \"$CIM_HOME/quicklisp/setup.lisp\")"
+    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(load \"$CIM_HOME/quicklisp/setup.lisp\")")
 }
 
 load_shelly() {
@@ -126,26 +126,13 @@ load_shelly() {
         shelly_path="$SHELLY_PATH"
     fi
 
-    init_cmd="$eval_option"$'\n'"(require (quote asdf))"
+    init_cmd=$(printf -- "$eval_option\n(require (quote asdf))")
     if [ -d "$shelly_path" ]; then
-        init_cmd="$init_cmd"$'\n'"$eval_option"$'\n'"(push (truename \"$shelly_path\") asdf:*central-registry*)"
+        init_cmd=$(printf -- "$init_cmd\n$eval_option\n(push (truename \"$shelly_path\") asdf:*central-registry*)")
     fi
     load_quicklisp
-    read -r -d '' cmd_load_shelly <<EOF
-(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable)))
-  (handler-case #+quicklisp (ql:quickload :shelly) #-quicklisp (asdf:load-system :shelly)
-    (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
-     (format *error-output* "~&Error: ~A~&" c)
-     #+quicklisp
-     (format *error-output* "~&Try (ql:update-all-dists) to ensure your dist is up to date.~%")
-     #+allegro (excl:exit 1 :quiet t)
-     #+sbcl    (sb-ext:exit)
-     #-(or allegro sbcl) (quit)))
-  (values))
-EOF
-    cmd_load_shelly=$(echo $cmd_load_shelly | sed -e 's/\n/ /g')
-    init_cmd="$init_cmd"$'\n'"$eval_option"$'\n'"$cmd_load_shelly"
-    init_cmd="$init_cmd"$'\n'"$eval_option"$'\n'"(shelly.util::shadowing-use-package :shelly)"
+    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(ql:quickload :shelly)")
+    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(shelly.util::shadowing-use-package :shelly)")
 }
 
 load_core() {
@@ -153,7 +140,7 @@ load_core() {
         echo "Although $LISP_IMPL doesn't support loading Lisp core, trying to load." 1>&1
         exit 1
     fi
-    impl_cmd="$core_option"$'\n'"$1"$'\n'"$impl_cmd"
+    impl_cmd=$(printf -- "$core_option\n$1\n$impl_cmd")
     load_quicklisp
 }
 
@@ -272,12 +259,15 @@ case "$action" in
         ;;
 esac
 
-main_cmd="$main_cmd"$'\n'"$eval_option"$'\n'"(shelly.util::terminate)"
+main_cmd=$(printf -- "$main_cmd\n$eval_option\n(shelly.util::terminate)")
 
-IFS=$'\n'
-cmd="$impl_cmd"$'\n'"$init_cmd"$'\n'"$cmd"$'\n'"$main_cmd"
+cmd=$(printf -- "$impl_cmd\n$init_cmd")
+[ -n "$option_cmd" ] && cmd=$(printf -- "$cmd\n$option_cmd")
+cmd=$(printf -- "$cmd\n$main_cmd")
+IFS='
+'
 if [ "$debug" = 1 ]; then
-    cmd_for_debug=$(echo $cmd | sed -e "s/$'\n'/ /g")
+    cmd_for_debug=$(echo "$cmd" | tr '\n' ' ')
     echo "$LISP_BINARY $cmd_for_debug"
 fi
 if [ "$help" = 1 ]; then
@@ -309,7 +299,7 @@ EOF
 fi
 
 if [ "$action" = "install" ]; then
-    $LISP_BINARY $cmd || exit 1
+    "$LISP_BINARY" $cmd || exit 1
     if expr "$SHELL" : '.*sh' > /dev/null 2>&1; then
         rc="SHELLY_HOME=$SHELLY_HOME; [ -s \"\$SHELLY_HOME/shelly/init.sh\" ] && . \"\$SHELLY_HOME/shelly/init.sh\""
         case "$SHELL" in
