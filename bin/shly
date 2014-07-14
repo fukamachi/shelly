@@ -1,5 +1,20 @@
 #!/bin/sh -
 
+if [ -z "$CIM_HOME" ]; then
+    echo "Error: CIM_HOME is not set. Check the configuration of CIM." 1>&2
+    echo "If you've never installed CIM, install it from https://github.com/KeenS/CIM first." 1>&2
+    exit 1
+fi
+
+if [ ! "$LISP_IMPL" ]; then
+    if [ -s "$CIM_HOME/config/current.$CIM_ID" ]; then
+        . "$CIM_HOME/config/current.$CIM_ID"
+    else
+        echo "Error: LISP_IMPL is not set." 1>&2
+        exit 1
+    fi
+fi
+
 BASENAME=$(basename $0)
 [ "$BASENAME" != "shly" ] && DOWNLOADED=1;
 
@@ -11,14 +26,7 @@ load_config() {
     fi
 }
 
-load_cim_config() {
-    if [ -s "$CIM_HOME/config/current.$CIM_ID" ]; then
-        . "$CIM_HOME/config/current.$CIM_ID"
-    fi
-}
-
 dumped_core_path() {
-    load_cim_config
     core_path="dumped-cores/$LISP_IMPL.core"
     if [ -f "$core_path" ]; then
         echo "$core_path"
@@ -201,7 +209,6 @@ case "$action" in
             load_core "$dumped_core_path"
         else
             if [ -z "$SHELLY_PATH" ]; then
-                load_cim_config
                 case "$LISP_IMPL" in
                     sbcl*|clisp*|ccl*|alisp*)
                         echo "Warning: Core image wasn't found for $LISP_IMPL. It is probably slow, isn't it? Try \"shly dump-core\"." 1>&2
