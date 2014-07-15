@@ -169,8 +169,9 @@ If you want to install Shelly to the different location, set SHELLY_HOME to the 
 
 If you use Bash or Zsh, the initialization code will be appended into your .bashrc or .zshrc automatically.
 
-Otherwise, add ~/.shelly/bin to PATH manually.
+Otherwise, set SHELLY_HOME and add ~/.shelly/bin to PATH manually.
 
+    SHELLY_HOME="$HOME/.shelly"
     PATH=$HOME/.shelly/bin:$PATH
 
 ## Upgrading
