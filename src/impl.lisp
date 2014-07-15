@@ -38,6 +38,7 @@
 
 @export
 (defun save-core-image (filepath)
+  (declare (ignorable filepath))
   #+allegro (progn (excl:dumplisp :name filepath) (excl:exit 1 :quiet t))
   #+ccl (ccl:save-application filepath)
   #+sbcl (sb-ext:save-lisp-and-die filepath)
@@ -48,6 +49,7 @@
 
 @export
 (defun condition-undefined-function-name (condition)
+  (declare (ignorable condition))
   (or
    #+sbcl (slot-value condition 'sb-kernel::name)
    #+ecl (slot-value condition 'si::name)
