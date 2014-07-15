@@ -276,7 +276,7 @@ Dump Lisp core image file to the current directory. This command takes system na
 
 ## History (roughly)
 
-### v0.7.0
+### v0.7.0 (July 15, 2014)
 
 * Use CIM for CL implementation management if it is installed.
 * Rewrite "bin/shly" in Shell script.
