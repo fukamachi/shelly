@@ -33,6 +33,9 @@ You can install a specific version by using \"--version\"."
          (if version
              (download-version version (shelly-home))
              (asdf:system-source-directory :shelly))))
+    (when (equal shelly-system-path
+                 (merge-pathnames #P"shelly/" (shelly-home)))
+      (terminate 1 "~&You already have this version. Exit.~%"))
     (when version
       (push shelly-system-path asdf:*central-registry*)
       #+quicklisp (ql:quickload :shelly)
