@@ -21,8 +21,9 @@
              (if (char= (aref str (1- (length str))) #\/)
                  str
                  (concatenate 'string str "/"))))
-    (or (pathname (ensure-ends-slash (getenv "SHELLY_HOME")))
-        (merge-pathnames ".shelly" (user-homedir-pathname)))))
+    (if (getenv "SHELLY_HOME")
+        (pathname (ensure-ends-slash (getenv "SHELLY_HOME")))
+        (merge-pathnames ".shelly/" (user-homedir-pathname)))))
 
 @export
 (defun shadowing-use-package (packages-to-use &optional (package (find-package :cl-user)))
