@@ -19,7 +19,8 @@ if [ -n "$CIM_HOME" ]; then
             exit 1
         fi
     fi
-elif [ -n "$SHELLY_HOME" ] && [ -f "$SHELLY_HOME/config" ]; then
+fi
+if [ -n "$SHELLY_HOME" ] && [ -f "$SHELLY_HOME/config" ]; then
     . "$SHELLY_HOME/config"
     export SHELLY_VERSION
     export QUICKLISP_HOME
