@@ -35,6 +35,7 @@
                     args)))))
 
 (defun shelly.core::print (result)
+  (fresh-line)
   (typecase result
     (string (princ result))
     (T (princ result))))
