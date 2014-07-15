@@ -5,6 +5,16 @@ BASENAME=$(basename $0)
 
 ## Loading configurations
 
+retrieve_config_from_perl() {
+    line=$(grep -m 1 "$1" "$2")
+    if [ -n "$line" ]; then
+        val=$(echo "$line" | sed -e "s/^[ ]*$1 => \"\{0,1\}\([^\"]*\)\"\{0,1\},\{0,1\}$/\1/")
+        if [ "$line" != "$val" ]; then
+            echo $val
+        fi
+    fi
+}
+
 if [ -n "$CIM_HOME" ]; then
     if [ -z "$LISP_IMPL" ]; then
         : ${CIM_ID:="$$"}
@@ -21,7 +31,15 @@ if [ -n "$CIM_HOME" ]; then
     fi
 fi
 if [ -n "$SHELLY_HOME" ] && [ -f "$SHELLY_HOME/config" ]; then
-    . "$SHELLY_HOME/config"
+    file_header=$(head -1 "$SHELLY_HOME/config")
+    if [ "$file_header" = "# -*- mode: perl -*-" ]; then
+        SHELLY_LISP_IMPL=$(retrieve_config_from_perl "default_lisp" "$SHELLY_HOME/config")
+        SHELLY_LISP_BINARY=$(retrieve_config_from_perl "binary_path" "$SHELLY_HOME/config.$SHELLY_LISP_IMPL")
+        SHELLY_VERSION=$(retrieve_config_from_perl "version" "$SHELLY_HOME/config")
+        QUICKLISP_HOME=$(retrieve_config_from_perl "quicklisp_home" "$SHELLY_HOME/config")
+    else
+        . "$SHELLY_HOME/config"
+    fi
     export SHELLY_VERSION
     export QUICKLISP_HOME
 fi
