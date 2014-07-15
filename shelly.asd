@@ -1,12 +1,12 @@
 #|
   This file is a part of shelly project.
-  Copyright (c) 2012 Eitarow Fukamachi (e.arrows@gmail.com)
+  Copyright (c) 2012-2014 Eitaro Fukamachi (e.arrows@gmail.com)
 |#
 
 #|
   Shelly - Run Common Lisp from shell easily.
 
-  Author: Eitarow Fukamachi (e.arrows@gmail.com)
+  Author: Eitaro Fukamachi (e.arrows@gmail.com)
 |#
 
 (in-package :cl-user)
@@ -15,21 +15,20 @@
 (in-package :shelly-asd)
 
 (defsystem shelly
-  :version "0.6.2"
-  :author "Eitarow Fukamachi"
+  :version "0.7.0"
+  :author "Eitaro Fukamachi"
   :license "BSD 2-Clause"
   :depends-on (:cl-annot
-               :swank
                :cl-ppcre
                :cl-fad
                :bordeaux-threads)
   :components ((:module "src"
                 :components
-                ((:file "shelly" :depends-on ("core" "install" "versions"))
+                ((:file "shelly" :depends-on ("core" "install" "versions" "util"))
                  (:file "core" :depends-on ("impl" "error" "util"))
                  (:file "install" :depends-on ("impl" "versions" "util"))
                  (:file "versions")
-                 (:file "util")
+                 (:file "util" :depends-on ("error" "impl"))
                  (:file "impl")
                  (:file "error"))))
   :description "Run Common Lisp from shell easily."
@@ -47,5 +46,6 @@
           seq)))
   :in-order-to ((test-op (load-op shelly-test))))
 
+#-shelly
 (defmethod asdf:perform :after ((op load-op) (c (eql (find-system :shelly))))
   (pushnew :shelly *features*))

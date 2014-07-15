@@ -1,99 +1,120 @@
-# Shelly - Run Common Lisp from shell easily
+# Shelly
 
 ## Usage
 
-    $ shly ql:update-all-dists --prompt nil
-    $ shly ql:system-apropos clack
-    $ shly ql:quickload :clack
+    Usage: shly [option,..] <command> [arg1,arg2..]
+
     $ shly -Lclack clackup /path/to/project/app.lisp
     $ shly -Ldrakma http-request http://www.hatena.com/
 
 ## Description
 
-Shelly allows you to execute Common Lisp functions like a shell command.
+Shelly enables you to execute Common Lisp functions like a shell command. And it also can be used as a Make-like build-tool.
 
-<span style="color:red">Warning</span>: This software is still ALPHA quality. The APIs will be likely to change.
+Shelly has the following features:
 
-## Requirements
+* Provides shell command-like interface for Common Lisp functions
+* Dumps a Lisp core for fast execution.
+* Allows to define project specific commands. (shlyfile)
+* Implementation independent.
 
-- Lisp implementation (SBCL, Clozure CL, Allegro CL, GNU CLISP, CMUCL or ECL)
-- Perl5
-- [Quicklisp](http://beta.quicklisp.org/)
+<strong><span style="color:red">Warning</span>: This software is still ALPHA quality. The APIs will be likely to change.</strong>
 
-## Dependencies
+## Why use it?
 
-All dependencies will be resolved by [Quicklisp](http://beta.quicklisp.org/), so you don't need to know about this.
+In Common Lisp world, most libraries and applications are designed to run on REPL. It is convenient for interactive development, but it would be an obstacle in some cases.
 
-If you choose to use ASDF for instead, you have to install these libraries before installation.
+For example, Common Lisp isn't good for writing a small script. No common way to write it in a portable way. Parsing command-line arguments is really annoying. And, the startup time would be very slow, especially when it uses some libraries.
 
-- [CL-FAD](http://weitz.de/cl-fad/)
-- [CL-PPCRE](http://weitz.de/cl-ppcre/)
-- Swank (a part of [SLIME](http://common-lisp.net/project/slime/))
-- [cl-annot](https://github.com/arielnetworks/cl-annot)
-- [Bordeaux Threads](http://common-lisp.net/project/bordeaux-threads/)
-- [Drakma](http://weitz.de/drakma/)
-- [FLEXI-STREAMS](http://weitz.de/flexi-streams/)
-- [YASON](http://common-lisp.net/project/yason/)
-- [Chipz](http://method-combination.net/lisp/chipz/)
-- [ARCHIVE](https://github.com/froydnj/archive)
+Shelly is trying to solve these problems.
 
-## Installation
+### 1. Implementation independent
 
-### Install from Quicklisp
+Shelly works with SBCL, Clozure CL, Allegro CL, ABCL, GNU CLISP and ECL.
 
-Shelly stable version is included in Quicklisp dist. I _don't_ recommend this version to use now, but this is the most easy way to try it anyway.
+### 2. Function as a shell command
 
-    (ql:quickload :shelly)
-    (shelly:install)
+Shelly treats general functions as its sub-commands, so you don't even need to write a script in most cases.
 
-or
+    (in-package :myapp)
+    
+    (defun do-something (&key verbose)
+      ;; Do something.
+      )
 
-    $ curl -L http://shlyfile.org/shly | LISP_IMPL=ccl perl - install
+    $ shly myapp:do-something --verbose t
 
-Change `LISP_IMPL` to your Lisp implementation name which is one of `sbcl`, `ccl`, `alisp`, `clisp`, `cmucl` and `ecl`.
+Command-line options and arguments will be delivered to a function.
 
-### Install from source
+### 3. Fast startup time
 
-As Shelly is under active development, I highly recommend you to install the latest revision of it.
+Shelly reduces the startup time by storing a Lisp core image. In a simple case, the execution is about 10 times faster than CIM's `cl` command and even 9 times faster than SBCL (with Quicklisp) at the maximum.
 
-```
-$ git clone https://github.com/fukamachi/shelly.git
-$ cd shelly
-$ SHELLY_PATH=. bin/shly install
-```
+    # Uses SBCL v1.2.1, Shelly v0.7.0
+    $ time shly + 1 2
+    3
+    shly + 1 2  0.05s user 0.03s system 96% cpu 0.086 total
+    
+    # CIM v1.0.0
+    $ time cl --eval '(princ (+ 1 2))'
+    3
+    cl --eval '(princ (+ 1 2))'  1.23s user 0.37s system 99% cpu 1.597 total
+    
+    # SBCL with Quicklisp
+    $ time sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'
+    3
+    sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'  1.12s user 0.37s system 99% cpu 1.499 total
+    
+    # SBCL without Quicklisp
+    $ time sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'
+    3
+    sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'  0.01s user 0.01s system 87% cpu 0.014 total
 
-## Configuration
+## How does it work
 
-Add the following code to your Shell configuration file (such like .bashrc or .zshrc).
+Shelly provides a shell script "shly". It takes some options, a command, and arguments for the command.
 
-    PATH=$HOME/.shelly/bin:$PATH
+    Usage: shly [option,..] <command> [arg1,arg2..]
 
-## How to use
+In this example, `ql:system-apropos` would be the command and `web` would be an argument.
 
-Running `shly --help` or just `shly` will get you how to use Shelly.
+    ;; Same as (ql:system-apropos "web")
+    $ shly ql:system-apropos web
+    #<SYSTEM bknr.modules / bknr-web-20140616-git / quicklisp 2014-06-16>
+    #<SYSTEM bknr.web / bknr-web-20140616-git / quicklisp 2014-06-16>
+    #<SYSTEM cl-web-crawler / cl-web-crawler-20130128-svn / quicklisp 2014-06-16>
+    #<SYSTEM cl-webdav / cl-webdav-0.2.1 / quicklisp 2014-06-16>
+    #<SYSTEM crane-web / crane-20140616-git / quicklisp 2014-06-16>
+    #<SYSTEM hh-web / hh-web-20140616-git / quicklisp 2014-06-16>
+    ...
 
-    $ shly
-    $ shly --help
+If an argument starts with ":", it would be converted into a keyword.
 
-## Upgrade
+    ;; Same as (asdf:system-source-file :hunchentoot).
+    $ shly asdf:system-source-file :hunchentoot
+    #P"/Users/nitro_idiot/quicklisp/dists/quicklisp/software/hunchentoot-1.2.21/hunchentoot.asd"
 
-Shelly ver 0.5.0 or higher allows to specify `--version` to `install` command. You can install the latest version of Shelly by running the following command.
+If an argument starts with "--", it also would be a keyword. This is just like common shell commands.
 
-```
-$ shly install --version latest
-```
+    ;; Same as (ql:update-all-dists :prompt nil)
+    $ shly ql:update-all-dists --prompt nil
 
-## Uninstall
+If the command is imported to `COMMON-LISP-USER` package, you can omit the package prefix.
 
-```
-$ rm -rf ~/.shelly
-```
+    $ shly list 1 2 3
+    (1 2 3)
 
-## Declaring Project specific commands
+Or, if the package name is the same as the system name that is loaded by `-L` option, you can also omit it.
 
-Shelly loads a local file which is named `shlyfile.lisp` if it exists. You can define project specific commands by writing functions in it.
+    $ shly -Ldrakma http-request http://www.hatena.com/
+    $ shly -Lcl-project make-project /path/to/myapp/ --description "My sample app." --author "Eitaro Fukamachi"
+
+## Declaring project specific commands
+
+Shelly loads a local file which is named `shlyfile.lisp` if it exists. You can define project specific commands by writing functions in it. This is just like a "Makefile" in Common Lisp.
 
 ```common-lisp
+;; shlyfile.lisp
 (defun test ()
   (asdf:test-system :your-app))
 
@@ -102,24 +123,246 @@ Shelly loads a local file which is named `shlyfile.lisp` if it exists. You can d
   )
 ```
 
-## For developers
-
-### Build a script
+Then, `shly test` and `shly build` would be available only in the directory.
 
 ```
-$ perl script/build.PL
+$ shly test
+$ shly build
 ```
 
-### Update Perl5 Dependencies
+Shelly also loads `~/.shelly/shlyfile.lisp` every time if it exists. If you have some commands you'd like to use everywhere, put them into that file.
+
+## Installation
+
+If you've installed [CIM](https://github.com/KeenS/CIM), Shelly will use its setting.
+
+- [CIM: Common Lisp Implementation Manager](https://github.com/KeenS/CIM)
+
+If not, you need at least one Common Lisp implementation and [Quicklisp](http://www.quicklisp.org/beta/).
+
+### Installing the stable version
+
+    $ curl -L http://shlyfile.org/shly | /bin/sh
+
+or
+
+    (ql:quickload :shelly)
+    (shelly:install)
+
+### Installing the latest version
+
+Most easy way to install the latest version is, installing the stable version first and upgrading it.
+
+    $ shly install --version latest
+
+or
+
+    $ (ql:quickload :shelly)
+    $ (shelly:install :version :latest)
+
+You can also install from the source code.
 
 ```
-$ perl script/upgrade-fatlib.pl
+$ git clone https://github.com/fukamachi/shelly.git
+$ cd shelly
+$ SHELLY_PATH=. bin/shly install
 ```
+
+As "shelly" directory will be copied to ~/.shelly, you don't need the cloned repository after installation.
+
+### Installing to other than ~/.shelly
+
+If you want to install Shelly to the different location, set SHELLY_HOME to the directory path.
+
+    $ curl -L http://shlyfile.org/shly | SHELLY_HOME=~/.shly /bin/sh
+
+## Configuration
+
+If you use bash, zsh, csh or tcsh, the initialization code will be appended into your .*rc file automatically.
+
+Otherwise, set SHELLY_HOME and add ~/.shelly/bin to PATH manually.
+
+    SHELLY_HOME="$HOME/.shelly"
+    [ -s "$SHELLY_HOME/shelly/init.sh" ] && . "$SHELLY_HOME/shelly/init.sh"
+
+## Upgrading
+
+Shelly ver 0.5.0 or higher allows to specify `--version` to `install` command. You can choose the version from the output of `shly available-versions`
+
+```
+$ shly available-versions
+v0.6.1
+v0.6.0
+v0.5.8
+v0.5.7
+v0.5.6
+v0.5.5
+v0.5.4
+v0.5.3
+v0.5.2
+v0.5.1
+v0.5.0
+v0.4.2
+v0.4.1
+v0.4.0
+v0.3.1
+v0.3
+v0.2
+v0.1
+```
+
+You can install the latest version of Shelly by running the following command.
+
+```
+$ shly install --version latest
+```
+
+To use Shelly ver 0.6.1 or older versions, you need Perl5, a Common Lisp implementation and Quicklisp.
+
+## Uninstalling
+
+Just delete the ~/.shelly directory.
+
+```
+$ rm -rf ~/.shelly
+```
+
+## Built-in Commands
+
+### help [&optional command]
+
+Show the usage of the specified `command`.
+
+    $ shly help ql:quickload
+    Usage: ql:quickload (systems &key verbose prompt explain
+                         (verbose *quickload-verbose*) (prompt *quickload-prompt*)
+                         &allow-other-keys)
+        Load SYSTEMS the quicklisp way. SYSTEMS is a designator for a list
+           of things to be loaded.
+
+If `command` is not specified, it shows all available commands. This is the same as `shly --help`.
+
+    $ shly help
+
+### install [&key version]
+
+Install Shelly into your environment under "~/.shelly". You can install a specific version by using "--version".
+
+    $ shly install --version v0.6.1
+
+### available-versions
+
+Show all the possible Shelly versions.
+
+    $ shly available-versions
+
+### dump-core
+
+Dump Lisp core image file for faster startup.
+
+    $ shly dump-core
+
+### rm-core
+
+Remove saved core image file which created by `dump-core`.
+
+    $ shly rm-core
+
+### local-dump-core [&rest systems]   \(Experimental)
+
+Dump Lisp core image file to the current directory. This command takes system names to be included in the core.
+
+    $ shly local-dump-core :myapp
+
+## History (roughly)
+
+### v0.7.0 (July 15, 2014)
+
+* Use CIM for CL implementation management if it is installed.
+* Rewrite "bin/shly" in Shell script.
+* Remove the dependency on SWANK.
+* Allow to specify where to install with `SHELLY_HOME`.
+* Add `upgrade` command.
+
+### v0.6.0 (Mar 31, 2014)
+
+* Add `local-dump-core` (experimental).
+* Allow multiple `-L` options.
+* Add a new option `-I` to add a directory path to `asdf:*central-registry*`.
+
+### v0.5.8 (Nov 12, 2013)
+
+* Muffle outputs of `ql:quickload` when `--verbose` isn't specified.
+
+### v0.5.0 (Aug 29, 2013)
+
+* Allow to install the specific version of Shelly.
+* Show commands even in "shlyfile"s.
+
+### v0.4.0 (Aug 26, 2013)
+
+* Add "shlyfile" feature.
+
+## Note: Conversion rules
+
+### Number
+
+    $ shly type-of 24
+    (INTEGER 0 4611686018427387903)
+    $ shly type-of 3.141592653589793d0
+    DOUBLE-FLOAT
+
+### Cons
+
+    $ shly type-of '(list 1 2 3)'
+    CONS
+
+### Boolean
+
+If it is "t" or "nil", it would be `T` or `NIL`.
+
+    $ shly type-of t
+    BOOLEAN
+    $ shly type-of nil
+    NULL
+
+### Keyword
+
+If it starts with ":" or "--", it would be a keyword.
+
+    $ shly type-of :web
+    KEYWORD
+    $ shly type-of --verbose
+
+### Pathname
+
+If the same name file exists, it would be a pathname. Otherwise, it would be just a string.
+
+    $ shly type-of test.lisp
+    (SIMPLE-ARRAY CHARACTER (9))
+    $ touch test.lisp
+    $ shly type-of test.lisp
+    PATHNAME
+
+### Symbol
+
+If the same name symbol exists, it would be a symbol.
+
+    $ shly pi
+    DOUBLE-FLOAT
+    $ shly asdf:\*central-registry\*
+    CONS
+
+### String
+
+Otherwise, it would be treated as a string.
+
+    $ shly common-lisp-is-great
+    (SIMPLE-ARRAY CHARACTER (20))
 
 ## Copyright
 
-Copyright (c) 2012-2013 Eitarow Fukamachi (e.arrows@gmail.com).
+Copyright (c) 2012-2014 Eitaro Fukamachi and [contributors](https://github.com/fukamachi/shelly/graphs/contributors).
+## License
 
-# License
-
-Licensed under the BSD (2-Clause) License.
+Licensed under the BSD (2-Clause) License. See LICENSE.

@@ -1,11 +1,12 @@
-#|
-  This file is a part of shelly project.
-  Copyright (c) 2012 Eitarow Fukamachi (e.arrows@gmail.com)
-|#
-
 (in-package :cl-user)
 (defpackage shelly.util
   (:use :cl)
+  (:import-from :asdf
+                :getenv)
+  (:import-from :shelly.error
+                :shelly-command-not-found-error)
+  (:import-from :shelly.impl
+                :condition-undefined-function-name)
   (:import-from :cl-fad
                 :file-exists-p
                 :walk-directory
@@ -15,7 +16,17 @@
 (cl-annot:enable-annot-syntax)
 
 @export
-(defun shadowing-use-package (packages-to-use &optional (package *package*))
+(defun shelly-home ()
+  (labels ((ensure-ends-slash (str)
+             (if (char= (aref str (1- (length str))) #\/)
+                 str
+                 (concatenate 'string str "/"))))
+    (if (getenv "SHELLY_HOME")
+        (pathname (ensure-ends-slash (getenv "SHELLY_HOME")))
+        (merge-pathnames ".shelly/" (user-homedir-pathname)))))
+
+@export
+(defun shadowing-use-package (packages-to-use &optional (package (find-package :cl-user)))
   (let ((packages-to-use (if (consp packages-to-use)
                              packages-to-use
                              (list packages-to-use))))
@@ -55,11 +66,27 @@
       (force-output *error-output*))
     (values)))
 
+@export
+(defun local-command-symbols (&optional (package (find-package :cl-user)))
+  (let (symbols)
+    (do-symbols (symbol package)
+      (when (and (eq package (symbol-package symbol)) (fboundp symbol))
+        (push symbol symbols)))
+    symbols))
+
 (defun load-shlyfile (shlyfile)
-  (pushnew (directory-namestring (asdf::truenamize shlyfile))
-           asdf:*central-registry*)
-  (let ((*standard-output* (make-broadcast-stream)))
-    (load shlyfile)))
+  (let ((shlyfile (if (fad:pathname-absolute-p shlyfile)
+                      shlyfile
+                      #+ccl
+                      (merge-pathnames shlyfile (ccl:current-directory))
+                      #-ccl
+                      (asdf::truenamize shlyfile))))
+    (pushnew (directory-namestring shlyfile)
+             asdf:*central-registry*)
+    (let ((*standard-output* (make-broadcast-stream))
+          (*package* (find-package :cl-user)))
+      (load shlyfile)
+      (import (local-command-symbols) (find-package :cl-user)))))
 
 @export
 (defun load-local-shlyfile (&optional shlyfile)
@@ -74,13 +101,11 @@
       (load-shlyfile shlyfile))))
 
 @export
-(defun load-global-shlyfile (&key verbose)
-  (let* ((shelly-home
-          (merge-pathnames ".shelly/" (user-homedir-pathname)))
-         (shlyfile
+(defun load-global-shlyfile ()
+  (let ((shlyfile
           (car (member-if #'fad:file-exists-p
                           (mapcar #'(lambda (path)
-                                      (merge-pathnames path shelly-home))
+                                      (merge-pathnames path (shelly-home)))
                                   '(#P"shlyfile" #P "shlyfile.lisp" #P"shlyfile.cl"))))))
     (when shlyfile
       (load-shlyfile shlyfile))))
@@ -100,7 +125,30 @@
         :overwrite overwrite)))))
 
 @export
+(defun arglist (fname)
+  #+sbcl (require 'sb-introspect)
+  #+(or sbcl ccl allegro clisp ecl abcl)
+  (handler-case
+      #+sbcl (funcall (intern (string :function-arglist) :sb-introspect)
+                      fname)
+      #+ccl (ccl:arglist fname)
+      #+allegro (excl:arglist fname)
+      #+clisp (ext:arglist fname)
+      #+ecl (multiple-value-bind (arglist foundp)
+                (ext:function-lambda-list fname)
+              (if foundp arglist :not-available))
+      #+abcl (multiple-value-bind (arglist foundp)
+                 (sys::arglist fname)
+               (if foundp arglist :not-available))
+    (undefined-function (c)
+      (error 'shelly-command-not-found-error
+             :command (condition-undefined-function-name c)))
+    (simple-error () :not-available))
+  #-(or sbcl ccl allegro clisp ecl abcl) :not-available)
+
+@export
 (defun terminate (&optional (status 0) format-string &rest format-arguments)
+  (declare (ignorable status))
   (when format-string
     (fresh-line *error-output*)
     (apply #'format *error-output* format-string format-arguments)
@@ -111,4 +159,5 @@
   #+clisp (ext:quit status)
   #+cmucl (unix:unix-exit status)
   #+ecl (ext:quit status)
-  #-(or ccl sbcl allegro clisp cmucl ecl) (cl-user::quit))
+  #+abcl (ext:exit :status status)
+  #-(or ccl sbcl allegro clisp cmucl ecl abcl) (cl-user::quit))

@@ -1,8 +1,3 @@
-#|
-  This file is a part of shelly project.
-  Copyright (c) 2012 Eitarow Fukamachi (e.arrows@gmail.com)
-|#
-
 (in-package :cl-user)
 (defpackage shelly.impl
   (:use :cl))
@@ -18,7 +13,8 @@
      #+allegro "alisp"
      #+clisp "clisp"
      #+cmu "cmucl"
-     #+ecl "ecl"))
+     #+ecl "ecl"
+     #+abcl "abcl"))
 
 @export
 (defvar *current-lisp-path*
@@ -42,6 +38,7 @@
 
 @export
 (defun save-core-image (filepath)
+  (declare (ignorable filepath))
   #+allegro (progn (excl:dumplisp :name filepath) (excl:exit 1 :quiet t))
   #+ccl (ccl:save-application filepath)
   #+sbcl (sb-ext:save-lisp-and-die filepath)
@@ -52,6 +49,7 @@
 
 @export
 (defun condition-undefined-function-name (condition)
+  (declare (ignorable condition))
   (or
    #+sbcl (slot-value condition 'sb-kernel::name)
    #+ecl (slot-value condition 'si::name)
