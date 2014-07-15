@@ -6,7 +6,6 @@
 
     <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
     <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
-    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
 
     <title>Shelly by fukamachi</title>
   </head>
@@ -19,7 +18,7 @@
         <h2>Run Common Lisp from shell easily.</h2>
 
         <section id="downloads">
-          <pre><code>$ curl -L http://xrl.us/shly | perl - install</code></pre>
+          <pre><code>$ curl -L http://shlyfile.org/shly | /bin/sh</code></pre>
         </section>
       </div>
     </header>
@@ -29,63 +28,61 @@
         <h3>
 <a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h3>
 
-<pre><code>$ shly ql:update-all-dists --prompt nil
-$ shly ql:system-apropos clack
-$ shly ql:quickload :clack
-$ shly -Lclack clackup /path/to/project/app.lisp
+<pre><code>Usage: shly [option,..] <command> [arg1,arg2..]
+</code></pre>
+
+<pre><code>$ shly -Lclack clackup /path/to/project/app.lisp
 $ shly -Ldrakma http-request http://www.hatena.com/
 </code></pre>
 
 <h3>
 <a name="description" class="anchor" href="#description"><span class="octicon octicon-link"></span></a>Description</h3>
 
-<p>Shelly allows you to execute Common Lisp functions like a shell command.</p>
+<p>Shelly enables you to execute Common Lisp functions like a shell command. And it also can be used as a Make-like build-tool.</p>
 
-<p><strong>Warning</strong>: This software is still ALPHA quality. The APIs will be likely to change.</p>
-
-<h3>
-<a name="dependencies" class="anchor" href="#dependencies"><span class="octicon octicon-link"></span></a>Dependencies</h3>
-
-<p>All dependencies will be resolved by <a href="http://beta.quicklisp.org/">Quicklisp</a>, so you don't need to know about this.</p>
-
-<p>Though I recommend you to install <a href="http://beta.quicklisp.org/">Quicklisp</a>, if you decided to use ASDF for instead, you have to install these libraries before installation.</p>
+<p>Shelly has the following features:</p>
 
 <ul>
-  <li><a href="http://weitz.de/cl-fad/">CL-FAD</a></li>
-  <li>Swank (a part of <a href="http://common-lisp.net/project/slime/">SLIME</a>)</li>
-  <li><a href="https://github.com/arielnetworks/cl-annot">cl-annot</a></li>
-  <li><a href="http://common-lisp.net/project/bordeaux-threads/">Bordeaux Threads</a></li>
+  <li>Provides shell command-like interface for Common Lisp functions</li>
+  <li>Dumps a Lisp core for fast execution.</li>
+  <li>Allows to define project specific commands. (shlyfile)</li>
+  <li>Implementation independent.</li>
 </ul>
+
+<p><strong style="color:red">Warning</strong>: This software is still ALPHA quality. The APIs will be likely to change.</p>
 
 <h3>
 <a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h3>
+
+<p>If you've installed <a href="https://github.com/KeenS/CIM" target="_blank">CIM</a>, Shelly will use its setting.</p>
+
+<ul>
+  <li><a href="https://github.com/KeenS/CIM" target="_blank">CIM: Common Lisp Implementation Manager</a></li>
+</ul>
+
+<p>If not, you need at least one Common Lisp implementation and <a href="http://www.quicklisp.org/beta/" target="_blank">Quicklisp</a>.</p>
+
+<pre><code>$ curl -L http://shlyfile.org/shly | /bin/sh</code></pre>
+
+<p>or</p>
 
 <pre><code>(ql:quickload :shelly)
 (shelly:install)
 </code></pre>
 
-<p>or</p>
-
-<pre><code>$ curl -L http://xrl.us/shly | LISP_IMPL=ccl perl - install</code></pre>
-
-<p>Change <code>LISP_IMPL</code> to your Lisp implementation name which is one of <code>sbcl</code>, <code>ccl</code>, <code>alisp</code>, <code>clisp</code>, <code>cmucl</code> and <code>ecl</code>.</p>
-
-<h3>
-<a name="configuration" class="anchor" href="#configuration"><span class="octicon octicon-link"></span></a>Configuration</h3>
-
-<p>Add the following code to your Shell configuration file (such like .bashrc or .zshrc).</p>
-
-<pre><code>PATH=$HOME/.shelly/bin:$PATH</code></pre>
-
 <h3>
 <a name="how-to-use" class="anchor" href="#how-to-use"><span class="octicon octicon-link"></span></a>How to use</h3>
 
+<p>All commands and their descriptions will be shown by this command:</p>
+
 <pre><code>$ shly --help</code></pre>
+
+<p><a href="https://github.com/fukamachi/shelly/blob/master/README.markdown">README</a> may also help you.</p>
 
 <h3>
 <a name="copyright" class="anchor" href="#copyright"><span class="octicon octicon-link"></span></a>Copyright</h3>
 
-<p>Copyright (c) 2012 Eitarow Fukamachi (e.arrows@gmail.com)</p>
+<p>Copyright (c) 2012-2014 Eitaro Fukamachi (e.arrows@gmail.com)</p>
 
 <h3>
 <a name="license" class="anchor" href="#license"><span class="octicon octicon-link"></span></a>
