@@ -397,41 +397,43 @@ fi
 
 if [ "$action" = "install" ]; then
     "$LISP_BINARY" $cmd || exit 1
-    if expr "$SHELL" : '.*sh' > /dev/null 2>&1; then
-        rc="SHELLY_HOME=$SHELLY_HOME; [ -s \"\$SHELLY_HOME/shelly/init.sh\" ] && . \"\$SHELLY_HOME/shelly/init.sh\""
-        case "$SHELL" in
-            */bash) rcfile="$HOME/.bashrc" ;;
-            */zsh)  rcfile="$HOME/.zshrc" ;;
-            */sh)   rcfile="$HOME/.profile" ;;
-            *) ;;
-        esac
-    fi
+    if [ -f "$SHELLY_HOME/shelly/init.sh" ]; then
+        if expr "$SHELL" : '.*sh' > /dev/null 2>&1; then
+            rc="SHELLY_HOME=$SHELLY_HOME; [ -s \"\$SHELLY_HOME/shelly/init.sh\" ] && . \"\$SHELLY_HOME/shelly/init.sh\""
+            case "$SHELL" in
+                */bash) rcfile="$HOME/.bashrc" ;;
+                */zsh)  rcfile="$HOME/.zshrc" ;;
+                */sh)   rcfile="$HOME/.profile" ;;
+                *) ;;
+            esac
+        fi
 
-    if [ -n "$rcfile" ] && [ -e "$rcfile" ]; then
-        if grep -F "$rc" "$rcfile" > /dev/null 2>&1; then
-            cat <<EOF
+        if [ -n "$rcfile" ] && [ -e "$rcfile" ]; then
+            if grep -F "$rc" "$rcfile" > /dev/null 2>&1; then
+                cat <<EOF
 
 Your shell has already configured in $rcfile. Enjoy!
 EOF
-        else
-            cat <<EOF
+            else
+                cat <<EOF
 
 Adding the following settings into your $rcfile:
 
     $rc
 
 EOF
-            echo "$rc" >> "$rcfile"
-            cat <<EOF
+                echo "$rc" >> "$rcfile"
+                cat <<EOF
 The configuration successed. Please reload your $rcfile. Enjoy!
 EOF
-        fi
-    else
-        cat <<EOF
+            fi
+        else
+            cat <<EOF
 
 Failed to detect your shell.
 Add $SHELLY_HOME/bin to your PATH variable manually.
 EOF
+        fi
     fi
 else
     exec "$LISP_BINARY" $cmd
