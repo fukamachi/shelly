@@ -8,13 +8,13 @@
 @export
 (defvar *current-lisp-name*
     (or
-     #+ccl "Clozure CL"
-     #+sbcl "SBCL"
-     #+allegro "Allegro CL"
-     #+clisp "GNU CLISP"
-     #+cmu "CMUCL"
-     #+ecl "ECL"
-     #+abcl "ABCL"))
+     #+ccl "ccl"
+     #+sbcl "sbcl"
+     #+allegro "alisp"
+     #+clisp "clisp"
+     #+cmu "cmucl"
+     #+ecl "ecl"
+     #+abcl "abcl"))
 
 @export
 (defvar *current-lisp-path*

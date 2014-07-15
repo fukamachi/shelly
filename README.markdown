@@ -30,7 +30,7 @@ Shelly is trying to solve these problems.
 
 ### 1. Implementation independent
 
-As Shelly uses CIM behind it, it should work with SBCL, Clozure CL, Allegro CL, ABCL, GNU CLISP and ECL.
+Shelly works with SBCL, Clozure CL, Allegro CL, ABCL, GNU CLISP and ECL.
 
 ### 2. Function as a shell command
 
@@ -50,12 +50,12 @@ Command-line options and arguments will be delivered to a function.
 
 Shelly reduces the startup time by storing a Lisp core image. In a simple case, the execution is about 10 times faster than CIM's `cl` command and even 9 times faster than SBCL (with Quicklisp) at the maximum.
 
-    # Uses SBCL v1.2.1, Shelly v0.7.0, CIM v1.0.0
+    # Uses SBCL v1.2.1, Shelly v0.7.0
     $ time shly + 1 2
     3
     shly + 1 2  0.05s user 0.03s system 96% cpu 0.086 total
     
-    # CIM
+    # CIM v1.0.0
     $ time cl --eval '(princ (+ 1 2))'
     3
     cl --eval '(princ (+ 1 2))'  1.23s user 0.37s system 99% cpu 1.597 total
@@ -134,9 +134,11 @@ Shelly also loads `~/.shelly/shlyfile.lisp` every time if it exists. If you have
 
 ## Installation
 
-As Shelly uses CIM for management of Common Lisp implementations, install it first.
+If you've installed [CIM](https://github.com/KeenS/CIM), Shelly will use its setting.
 
 - [CIM: Common Lisp Implementation Manager](https://github.com/KeenS/CIM)
+
+If not, you need at least one Common Lisp implementation and [Quicklisp](http://www.quicklisp.org/beta/).
 
 ### Installing from Quicklisp
 
@@ -264,7 +266,7 @@ Dump Lisp core image file to the current directory. This command takes system na
 
 ### v0.7.0
 
-* Use CIM for CL implementation management.
+* Use CIM for CL implementation management if it is installed.
 * Rewrite "bin/shly" in Shell script.
 * Remove the dependency on SWANK.
 * Allow to specify where to install with `SHELLY_HOME`.

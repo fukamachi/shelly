@@ -78,7 +78,9 @@ You can install a specific version by using \"--version\"."
                          :direction :output
                          :if-does-not-exist :create
                          :if-exists :supersede)
-      (format out "SHELLY_VERSION=\"~A\"~%QUICKLISP_HOME=~:[~;~:*\"~A\"~]~%"
+      (format out "SHELLY_LISP_IMPL=\"~A\"~%SHELLY_LISP_BINARY=\"~A\"~%SHELLY_VERSION=\"~A\"~%QUICKLISP_HOME=~:[~;~:*\"~A\"~]~%"
+              *current-lisp-name*
+              *current-lisp-path*
               version
               #+quicklisp ql:*quicklisp-home*
               #-quicklisp nil))
