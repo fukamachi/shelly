@@ -42,6 +42,7 @@
 
 @export
 (defun interpret (expr &key verbose)
+  (pushnew :shelly *features*)
   (when verbose
     (format *debug-io* "~&;-> ~S~%" expr))
 
@@ -89,6 +90,7 @@
                 (terminate)))))
       (shelly-command-not-found-error (e)
         (format *error-output* "~&Error: ~A~%" e)))
+    (setf *features* (remove :shelly *features* :test #'eq))
     retval))
 
 (defun prompt ()
