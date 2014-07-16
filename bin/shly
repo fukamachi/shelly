@@ -248,7 +248,7 @@ verbose="nil"
 
 if [ "$DOWNLOADED" = 1 ]; then
     action="install"
-    run_shelly_command "install"
+    run_shelly_command "install" ":version" ":latest"
 fi
 
 for ARG; do

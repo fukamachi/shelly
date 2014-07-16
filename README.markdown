@@ -142,23 +142,19 @@ If not, you need at least one Common Lisp implementation and [Quicklisp](http://
 
 ### Installing the stable version
 
-    $ curl -L http://shlyfile.org/shly | /bin/sh
-
-or
-
     (ql:quickload :shelly)
     (shelly:install)
 
 ### Installing the latest version
 
-Most easy way to install the latest version is, installing the stable version first and upgrading it.
+Currently, the install script always installs the latest version because the stable version requires Perl5 and I suppose you may not expect it.
 
-    $ shly install --version latest
+    $ curl -L http://shlyfile.org/shly | /bin/sh
 
 or
 
-    $ (ql:quickload :shelly)
-    $ (shelly:install :version :latest)
+    (ql:quickload :shelly)
+    (shelly:install :version :latest)
 
 You can also install from the source code.
 
