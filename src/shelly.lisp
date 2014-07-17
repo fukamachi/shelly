@@ -4,7 +4,8 @@
   (:import-from :cl-ppcre
                 :split)
   (:import-from :shelly.core
-                :run-repl)
+                :run-repl
+                :*argv*)
   (:import-from :shelly.install
                 :install
                 :upgrade
@@ -16,7 +17,8 @@
   (:import-from :shelly.util
                 :local-command-symbols
                 :arglist)
-  (:export :run-repl
+  (:export :*argv*
+           :run-repl
            :install
            :upgrade
            :dump-core
@@ -43,13 +45,14 @@ If `command' is specified, its usage will be displayed."
       (progn
         (format t "~&Built-In Commands:~%")
         (do-external-symbols (symbol :shelly)
-          (let ((arglist (arglist symbol)))
-            (format t "~&    ~(~A~) ~:[()~;~:*~(~A~)~]~%~{        ~A~^~%~}~2%"
-                    symbol
-                    (if (eq arglist :not-available)
-                        ""
-                        arglist)
-                    (ppcre:split "\\n" (documentation symbol 'function)))))
+          (when (fboundp symbol)
+            (let ((arglist (arglist symbol)))
+              (format t "~&    ~(~A~) ~:[()~;~:*~(~A~)~]~%~{        ~A~^~%~}~2%"
+                      symbol
+                      (if (eq arglist :not-available)
+                          ""
+                          arglist)
+                      (ppcre:split "\\n" (documentation symbol 'function))))))
         (let ((symbols (local-command-symbols)))
           (when symbols
             (format t "~&Local Commands:~%")

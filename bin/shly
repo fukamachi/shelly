@@ -326,6 +326,7 @@ while [ "$1" != "" ]; do
             ;;
         *)
             action="$1"
+            shelly_argv="$@"
             run_shelly_command "$@"
             break
             ;;
@@ -360,6 +361,12 @@ case "$action" in
 
             load_shelly
         fi
+
+        list=
+        for a in $shelly_argv; do
+            list="$list \""$(echo $a | sed -e 's/"/\\\\"/g')"\""
+        done
+        add_eval_option "(setf shelly:*argv* (list$list))"
 
         if [ "$no_global_shlyfile" != 1 ]; then
             add_eval_option "(shelly.util::load-global-shlyfile)"

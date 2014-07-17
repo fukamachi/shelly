@@ -22,6 +22,9 @@
 (cl-annot:enable-annot-syntax)
 
 @export
+(defparameter *argv* '())
+
+@export
 (defun shelly.core::read (expr)
   (let ((*package* (find-package :cl-user)))
     (destructuring-bind (fn &rest args) expr
