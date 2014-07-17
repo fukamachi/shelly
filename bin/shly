@@ -301,6 +301,23 @@ for ARG; do
             shlyfile=$(echo $1 | sed -e 's/\-f//')
             shift
             ;;
+        --no-core)
+            no_core=1
+            shift
+            ;;
+        --no-local-shlyfile)
+            no_local_shlyfile=1
+            shift
+            ;;
+        --no-global-shlyfile)
+            no_global_shlyfile=1
+            shift
+            ;;
+        --no-shlyfile)
+            no_local_shlyfile=1
+            no_global_shlyfile=1
+            shift
+            ;;
         --*|-*)
             if [ "$1" != "-" ]; then
                 echo "Unknown option '$1'."
@@ -330,10 +347,10 @@ case "$action" in
         ;;
     *)
         dumped_core_path=$(dumped_core_path)
-        if [ -z "$SHELLY_PATH" ] && [ "$core_option" ] && [ -f "$dumped_core_path" ]; then
+        if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ] && [ "$core_option" ] && [ -f "$dumped_core_path" ]; then
             load_core "$dumped_core_path"
         else
-            if [ -z "$SHELLY_PATH" ]; then
+            if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ]; then
                 case "$LISP_IMPL" in
                     sbcl*|clisp*|ccl*|alisp*)
                         echo "Warning: Core image wasn't found for $LISP_IMPL. It is probably slow, isn't it? Try \"shly dump-core\"." 1>&2
@@ -344,10 +361,12 @@ case "$action" in
             load_shelly
         fi
 
-        add_eval_option "(shelly.util::load-global-shlyfile)"
-        if [ -z "$shlyfile" ]; then
+        if [ "$no_global_shlyfile" != 1 ]; then
+            add_eval_option "(shelly.util::load-global-shlyfile)"
+        fi
+        if [ "$no_local_shlyfile" != 1 ] && [ -z "$shlyfile" ]; then
             add_eval_option "(shelly.util::load-local-shlyfile)"
-        else
+        elif [ -n "$shlyfile" ]; then
             add_eval_option "(shelly.util::load-local-shlyfile #P\"$shlyfile\")"
         fi
         ;;
@@ -385,6 +404,19 @@ Options:
 
     -V, --version
         Print the version of Shelly and exit.
+
+    --no-core
+        Not to use a dumped Lisp core.
+
+    --no-local-shlyfile
+        Inhibit processing of any shlyfile in the current directory.
+
+    --no-global-shlyfile
+        Inhibit processing of any global shlyfile.
+
+    --no-shlyfile
+        Inhibit processing of any kind of shlyfile
+        (Same as specifying '--no-local-shlyfile --no-global-shlyfile').
 
     --verbose
         Print some informations.
