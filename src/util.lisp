@@ -105,8 +105,6 @@
                       (merge-pathnames shlyfile (ccl:current-directory))
                       #-ccl
                       (asdf::truenamize shlyfile))))
-    (pushnew (directory-namestring shlyfile)
-             asdf:*central-registry*)
     (let ((*standard-output* (make-broadcast-stream))
           (*package* (find-package :cl-user)))
       (with-retrying-when-system-not-found
@@ -114,8 +112,8 @@
       (import (local-command-symbols) (find-package :cl-user)))))
 
 @export
-(defun load-local-shlyfile (&optional shlyfile)
-  (when (and shlyfile
+(defun load-local-shlyfile (&optional (shlyfile nil shlyfile-specified-p))
+  (when (and shlyfile-specified-p
              (not (fad:file-exists-p shlyfile)))
     (terminate 1 "Error: No such shlyfile: \"~A\"" shlyfile))
 
@@ -123,7 +121,9 @@
                       (car (member-if #'fad:file-exists-p
                                       '(#P"shlyfile" #P"shlyfile.lisp" #P"shlyfile.cl"))))))
     (when shlyfile
-      (load-shlyfile shlyfile))))
+      (let ((asdf:*central-registry* (cons (directory-namestring shlyfile)
+                                           asdf:*central-registry*)))
+        (load-shlyfile shlyfile)))))
 
 @export
 (defun load-global-shlyfile ()
