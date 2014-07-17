@@ -8,7 +8,7 @@
                 :canonicalize-arg))
 (in-package :shelly-test)
 
-(plan nil)
+(plan 16)
 
 (is (canonicalize-arg "t") t "boolean T")
 (is (canonicalize-arg "nil") nil "boolean NIL")
@@ -38,6 +38,10 @@
 
 (is-type (canonicalize-arg
           (princ-to-string (asdf:system-relative-pathname :shelly "t/")))
+         'pathname
+         "pathname")
+
+(is-type (canonicalize-arg "#P\"app.lisp\"")
          'pathname
          "pathname")
 
