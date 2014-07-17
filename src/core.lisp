@@ -40,9 +40,7 @@
 
 (defun shelly.core::print (result)
   (fresh-line)
-  (typecase result
-    (string (princ result))
-    (T (princ result))))
+  (prin1 result))
 
 @export
 (defun interpret (expr &key verbose)
