@@ -124,10 +124,8 @@
     (return-from canonicalize-arg arg0))
 
   (let* ((errorp nil)
-         (arg (handler-case (progn
-                              (in-package :cl-user)
-                              (unwind-protect (read-from-string arg0)
-                                (in-package :shelly.core)))
+         (arg (handler-case (let ((*package* (find-package :cl-user)))
+                              (read-from-string arg0))
                 (error ()
                   (setf errorp t)
                   arg0))))
