@@ -54,12 +54,12 @@ You can install a specific version by using \"--version\"."
         (latest-version (gethash "name" (find-version :latest))))
     (cond
       ((string< current-version latest-version)
-       (format *debug-io* "Upgrading Shelly from ~A to ~A."
+       (format t "~&Upgrading Shelly from ~A to ~A.~%"
                current-version
                latest-version)
        (install :version latest-version))
       (T
-       (format *debug-io* "~&You already have the latest version.~%")))
+       (format t "~&You already have the latest version.~%")))
     (values)))
 
 (defun install-from-path (shelly-system-path)
