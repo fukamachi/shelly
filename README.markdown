@@ -1,11 +1,17 @@
-# Shelly
+# Shelly - Make Common Lisp shelly-friendly.
 
 ## Usage
 
     Usage: shly [option,..] <command> [arg1,arg2..]
 
+Examples:
+
+    $ shly asdf:test-system :clack
+    $ shly ql:update-all-dists --prompt nil
     $ shly -Lclack clackup /path/to/project/app.lisp
+    $ shly -Lclack clack.app.directory:start-server
     $ shly -Ldrakma http-request http://www.hatena.com/
+    $ shly -Lcl-project make-project /path/to/myapp/ --description "My sample app." --author "Eitaro Fukamachi"
 
 ## Description
 
@@ -26,11 +32,11 @@ In Common Lisp world, most libraries and applications are designed to run on REP
 
 For example, Common Lisp isn't good for writing a small script. No common way to write it in a portable way. Parsing command-line arguments is really annoying. And, the startup time would be very slow, especially when it uses some libraries.
 
-Shelly is trying to solve these problems.
+Shelly solves these problems by providing a shell-friendly interface of Common Lisp. If your application need to run with Cron, Supervisord or other CUI applications, this may help you.
 
 ### 1. Implementation independent
 
-Shelly works with SBCL, Clozure CL, Allegro CL, ABCL, GNU CLISP and ECL.
+Shelly should work fine with one of SBCL, Clozure CL, Allegro CL, ABCL, GNU CLISP and ECL.
 
 ### 2. Function as a shell command
 
@@ -46,29 +52,29 @@ Shelly treats general functions as its sub-commands, so you don't even need to w
 
 Command-line options and arguments will be delivered to a function.
 
-### 3. Fast startup time
+### 3. Fast startup
 
-Shelly reduces the startup time by storing a Lisp core image. In a simple case, the execution is about 10 times faster than CIM's `cl` command and even 9 times faster than SBCL (with Quicklisp) at the maximum.
+Shelly reduces the startup time by storing a Lisp core image. In a simple case, the execution is about 33 times faster than CIM's `cl` command and even 25 times faster than SBCL (with Quicklisp) at the maximum.
 
     # Uses SBCL v1.2.1, Shelly v0.7.0
     $ time shly + 1 2
     3
-    shly + 1 2  0.05s user 0.03s system 96% cpu 0.086 total
+    shly + 1 2  0.02s user 0.03s system 102% cpu 0.047 total
     
     # CIM v1.0.0
     $ time cl --eval '(princ (+ 1 2))'
     3
-    cl --eval '(princ (+ 1 2))'  1.23s user 0.37s system 99% cpu 1.597 total
+    cl --eval '(princ (+ 1 2))'  0.67s user 0.11s system 96% cpu 0.805 total
     
     # SBCL with Quicklisp
     $ time sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'
     3
-    sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'  1.12s user 0.37s system 99% cpu 1.499 total
+    sbcl --noinform --eval '(princ (+ 1 2))' --eval '(quit)'  0.51s user 0.09s system 99% cpu 0.606 total
     
     # SBCL without Quicklisp
     $ time sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'
     3
-    sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'  0.01s user 0.01s system 87% cpu 0.014 total
+    sbcl --noinform --no-userinit --eval '(princ (+ 1 2))' --eval '(quit)'  0.00s user 0.01s system 89% cpu 0.012 total
 
 ## How does it work
 
@@ -109,7 +115,7 @@ Or, if the package name is the same as the system name that is loaded by `-L` op
     $ shly -Ldrakma http-request http://www.hatena.com/
     $ shly -Lcl-project make-project /path/to/myapp/ --description "My sample app." --author "Eitaro Fukamachi"
 
-## Declaring project specific commands
+## As a replacement of Makefile
 
 Shelly loads a local file which is named `shlyfile.lisp` if it exists. You can define project specific commands by writing functions in it. This is just like a "Makefile" in Common Lisp.
 
@@ -141,6 +147,8 @@ If you've installed [CIM](https://github.com/KeenS/CIM), Shelly will use its set
 If not, you need at least one Common Lisp implementation and [Quicklisp](http://www.quicklisp.org/beta/).
 
 ### Installing the stable version
+
+The stable version in the current Quicklisp release requires Perl5.
 
     (ql:quickload :shelly)
     (shelly:install)
@@ -187,6 +195,10 @@ Shelly ver 0.5.0 or higher allows to specify `--version` to `install` command. Y
 
 ```
 $ shly available-versions
+v0.7.3
+v0.7.2
+v0.7.1
+v0.7.0
 v0.6.1
 v0.6.0
 v0.5.8
