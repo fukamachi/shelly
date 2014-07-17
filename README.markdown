@@ -1,5 +1,17 @@
 # Shelly - Make Common Lisp shelly-friendly.
 
+## Announcement: Release of v0.7.5
+
+Perl5 isn't required to use Shelly from v0.7.0 because I rewrote it in shell script.
+
+You can install the latest version by this command:
+
+    $ curl -L http://shlyfile.org/shly | /bin/sh
+
+If you already have an older version of it, you can upgrade it by this command:
+
+    $ shly install --version latest
+
 ## Usage
 
     Usage: shly [option,..] <command> [arg1,arg2..]
