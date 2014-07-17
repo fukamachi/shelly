@@ -222,8 +222,8 @@ load_shelly() {
         shelly_path="$SHELLY_PATH"
     fi
 
-    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(require (quote asdf))")
     load_quicklisp
+    init_cmd=$(printf -- "$init_cmd\n$eval_option\n(require (quote asdf))")
     if [ -d "$shelly_path" ]; then
         init_cmd=$(printf -- "$init_cmd\n$eval_option\n(push (asdf::truenamize \"$shelly_path\") asdf:*central-registry*)")
     fi
