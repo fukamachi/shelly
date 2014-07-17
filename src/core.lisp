@@ -40,9 +40,7 @@
 
 (defun shelly.core::print (result)
   (fresh-line)
-  (typecase result
-    (string (princ result))
-    (T (princ result))))
+  (prin1 result))
 
 @export
 (defun interpret (expr &key verbose)
@@ -123,14 +121,15 @@
   (unless (stringp arg0)
     (return-from canonicalize-arg arg0))
 
-  (let ((arg (handler-case (progn
-                             (in-package :cl-user)
-                             (unwind-protect (read-from-string arg0)
-                               (in-package :shelly.core)))
-                (error () arg0))))
+  (let* ((errorp nil)
+         (arg (handler-case (let ((*package* (find-package :cl-user)))
+                              (read-from-string arg0))
+                (error ()
+                  (setf errorp t)
+                  arg0))))
     (cond
-      ((or (numberp arg) (consp arg) (typep arg 'boolean))
-       arg)
+      ((and (not errorp)
+            (not (symbolp arg))) arg)
       ((string= "" arg) arg)
       ((string= "--" (handler-case (subseq (string arg) 0 2)
                        (error ())))
