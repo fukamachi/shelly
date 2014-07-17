@@ -15,7 +15,7 @@
 (in-package :shelly-asd)
 
 (defsystem shelly
-  :version "0.7.3"
+  :version "0.7.4"
   :author "Eitaro Fukamachi"
   :license "BSD 2-Clause"
   :depends-on (:cl-annot
