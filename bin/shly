@@ -251,8 +251,8 @@ if [ "$DOWNLOADED" = 1 ]; then
     run_shelly_command "install" ":version" ":latest"
 fi
 
-for ARG; do
-    case "$ARG" in
+while [ "$1" != "" ]; do
+    case "$1" in
         --help|-h|help)
             action="shelly::help"
             if [ $# = 1 ]; then
