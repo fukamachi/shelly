@@ -16,6 +16,29 @@
 (cl-annot:enable-annot-syntax)
 
 @export
+(defmacro with-retrying-when-system-not-found (&body body)
+  (let ((e (gensym "E"))
+        (retried (gensym "RETRIED"))
+        (retry-once (gensym "RETRY-ONCE")))
+    `(let ((,retried nil))
+       (macrolet ((,retry-once (,e)
+                    `(when (not `,,',retried)
+                       (asdf:initialize-source-registry)
+                       (setf `,,',retried t)
+                       (invoke-restart 'retry)
+                       (abort ,,e))))
+         (restart-case
+             (handler-bind (#+quicklisp
+                            (ql:system-not-found
+                              (lambda (,e)
+                                (,retry-once ,e)))
+                            (asdf:missing-component
+                              (lambda (,e)
+                                (,retry-once ,e))))
+               ,@body)
+           (retry () ,@body))))))
+
+@export
 (defun shelly-home ()
   (labels ((ensure-ends-slash (str)
              (if (char= (aref str (1- (length str))) #\/)
@@ -39,8 +62,9 @@
   (handler-case (let ((*standard-output* (if verbose
                                              *standard-output*
                                              (make-broadcast-stream))))
-                  #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
-                  #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil)))
+                  (with-retrying-when-system-not-found
+                    #+quicklisp (ql:quickload systems :verbose nil :prompt nil)
+                    #-quicklisp (dolist (system systems) (asdf:load-system system :verbose nil))))
     (#+quicklisp ql::system-not-found #-quicklisp asdf:missing-component (c)
       (terminate 1 "Error: ~A" c)))
   (let ((packages (remove-if-not #'find-package
@@ -85,7 +109,8 @@
              asdf:*central-registry*)
     (let ((*standard-output* (make-broadcast-stream))
           (*package* (find-package :cl-user)))
-      (load shlyfile)
+      (with-retrying-when-system-not-found
+        (load shlyfile))
       (import (local-command-symbols) (find-package :cl-user)))))
 
 @export
