@@ -186,7 +186,7 @@ option_cmd=
 main_cmd=
 
 add_option() {
-    option_cmd=$(printf -- "$option_cmd\n$1\n$2")
+    option_cmd=$(printf -- "%s\n$1\n$2" "$option_cmd")
 }
 
 add_eval_option() {
@@ -326,7 +326,6 @@ while [ "$1" != "" ]; do
             ;;
         *)
             action="$1"
-            shelly_argv="$@"
             run_shelly_command "$@"
             break
             ;;
@@ -363,7 +362,7 @@ case "$action" in
         fi
 
         list=
-        for a in $shelly_argv; do
+        for a in "$@"; do
             list="$list \""$(echo $a | sed -e 's/"/\\\\"/g')"\""
         done
         add_eval_option "(setf shelly:*argv* (list$list))"
@@ -382,9 +381,9 @@ esac
 main_cmd=$(printf -- "%s\n$eval_option\n(shelly.util::terminate)" "$main_cmd")
 
 if [ -n "$QUICKLISP_HOME" ]; then
-    cmd=$(printf -- "$impl_cmd\n$noinit_cmd$init_cmd$option_cmd%s" "$main_cmd")
+    cmd=$(printf -- "$impl_cmd\n$noinit_cmd$init_cmd%s%s" "$option_cmd" "$main_cmd")
 else
-    cmd=$(printf -- "$impl_cmd$init_cmd$option_cmd%s" "$main_cmd")
+    cmd=$(printf -- "$impl_cmd$init_cmd%s%s" "$option_cmd" "$main_cmd")
 fi
 
 IFS='
