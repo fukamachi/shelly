@@ -198,7 +198,7 @@ add_load_path() {
 }
 
 load_library() {
-    add_eval_option "(shelly.util::load-systems (list :$1))"
+    add_eval_option "(shelly.util::load-systems (list :$1) :verbose $verbose)"
 }
 
 run_shelly_command() {
