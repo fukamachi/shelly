@@ -15,10 +15,14 @@
                 :shelly-read-error
                 :shelly-command-not-found-error)
   (:import-from :shelly.util
+                :with-retrying-when-system-not-found
                 :terminate))
 (in-package :shelly.core)
 
 (cl-annot:enable-annot-syntax)
+
+@export
+(defparameter *argv* '())
 
 @export
 (defun shelly.core::read (expr)
@@ -69,7 +73,8 @@
             (let ((result
                     (multiple-value-list
                      (handler-case (let ((*package* (find-package :cl-user)))
-                                     (eval expr))
+                                     (with-retrying-when-system-not-found
+                                       (eval expr)))
                        (undefined-function (c)
                          (let ((funcname (condition-undefined-function-name c)))
                            (if (string-equal funcname (car expr))
