@@ -294,7 +294,25 @@ Dump Lisp core image file to the current directory. This command takes system na
 
     $ shly local-dump-core :myapp
 
+### install-command [package-or-function-name]
+
+Make an executable file under SHELLY_HOME/bin/.
+
+    # Making a function executable.
+    $ shly -Lclack install-command clack:clackup
+    # Same as (clack:clackup #P"/path/to/app.lisp")
+    $ clackup /path/to/app.lisp
+
+    # Making a package executable.
+    $ shly -Lclack install-command clack.app.directory
+    # Same as (clack.app.directory:start-server :port 50032)
+    $ clack.app.directory start-server --port 50032
+
 ## History (roughly)
+
+### v0.8.0
+
+* Add `install-command` command (for SBCL and CCL).
 
 ### v0.7.0 (July 15, 2014)
 

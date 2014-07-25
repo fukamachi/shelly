@@ -11,19 +11,22 @@
                 :upgrade
                 :dump-core
                 :local-dump-core
-                :rm-core)
+                :rm-core
+                :install-command)
   (:import-from :shelly.versions
                 :release-versions)
   (:import-from :shelly.util
                 :local-command-symbols
-                :arglist)
+                :arglist
+                :print-package-commands)
   (:export :*argv*
            :run-repl
            :install
            :upgrade
            :dump-core
            :local-dump-core
-           :rm-core))
+           :rm-core
+           :install-command))
 (in-package :shelly)
 
 (cl-annot:enable-annot-syntax)
@@ -44,15 +47,7 @@ If `command' is specified, its usage will be displayed."
                 (ppcre:split "\\n" (documentation parsed-command 'function))))
       (progn
         (format t "~&Built-In Commands:~%")
-        (do-external-symbols (symbol :shelly)
-          (when (fboundp symbol)
-            (let ((arglist (arglist symbol)))
-              (format t "~&    ~(~A~) ~:[()~;~:*~(~A~)~]~%~{        ~A~^~%~}~2%"
-                      symbol
-                      (if (eq arglist :not-available)
-                          ""
-                          arglist)
-                      (ppcre:split "\\n" (documentation symbol 'function))))))
+        (print-package-commands :shelly)
         (let ((symbols (local-command-symbols)))
           (when symbols
             (format t "~&Local Commands:~%")
