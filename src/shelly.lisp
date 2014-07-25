@@ -57,9 +57,13 @@ If `command' is specified, its usage will be displayed."
           (when symbols
             (format t "~&Local Commands:~%")
             (dolist (symbol symbols)
-              (format t "~&    ~(~A~)~:[~;~:*~%~{        ~A~^~%~}~]~2%"
-                      symbol
-                      (ppcre:split "\\n" (documentation symbol 'function))))))))
+              (let ((arglist (arglist symbol)))
+                (format t "~&    ~(~A~) ~:[()~;~:*~(~A~)~]~{~&        ~A~}~2%"
+                        symbol
+                        (if (eq arglist :not-available)
+                            ""
+                            arglist)
+                        (ppcre:split "\\n" (documentation symbol 'function)))))))))
   (values))
 
 @export
