@@ -1,7 +1,15 @@
 #!/bin/sh -
 
 BASENAME=$(basename $0)
-[ "$BASENAME" != "shly" ] && DOWNLOADED=1;
+[ "$BASENAME" = "sh" ] && DOWNLOADED=1;
+if [ -z "$SHELLY_HOME" ] || [ ! -f "$SHELLY_HOME/config" ]; then
+    NOT_INSTALLED=1
+fi
+
+if [ "$DOWNLOADED" != 1 ] && [ "$NOT_INSTALLED" = 1 ] && [ "$1" != "install" ]; then
+    echo "Error: Shelly is not installed. If you wanna install it, run '$BASENAME install' first." 1>&2
+    exit 1
+fi
 
 ## Loading configurations
 
