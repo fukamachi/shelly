@@ -96,9 +96,11 @@ $n implementations were detected.
 EOF
 
     while true; do
-        read -p "Which Lisp do you want to use? [1] " chose || exit 1
+        printf "Which Lisp do you want to use? [1] "
+        read chose || exit 1
         [ -z "$chose" ] && chose=1
         LISP_IMPL=$(eval echo "\$lisp_impl_option$chose")
+        echo "Invalid input: "$chose
         [ -n "$LISP_IMPL" ] && break
     done
 
