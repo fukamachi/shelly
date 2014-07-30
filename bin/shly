@@ -97,14 +97,19 @@ EOF
 
     while true; do
         printf "Which Lisp do you want to use? [1] "
-        read chose || exit 1
+        read chose </dev/tty || exit 1
         [ -z "$chose" ] && chose=1
         LISP_IMPL=$(eval echo "\$lisp_impl_option$chose")
-        echo "Invalid input: "$chose
-        [ -n "$LISP_IMPL" ] && break
+        if [ -n "$LISP_IMPL" ]; then
+            break
+        else
+            echo "Invalid input: "$chose 1>&2
+        fi
     done
 
     LISP_BINARY=$(which $LISP_IMPL)
+
+    echo "Using '$LISP_IMPL' at '$LISP_BINARY'"
 fi
 
 if [ -z "$LISP_BINARY" ]; then
