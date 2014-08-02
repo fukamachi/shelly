@@ -15,7 +15,7 @@
 (in-package :shelly-asd)
 
 (defsystem shelly
-  :version "0.7.8"
+  :version "0.8.0"
   :author "Eitaro Fukamachi"
   :license "BSD 2-Clause"
   :depends-on (:split-sequence
