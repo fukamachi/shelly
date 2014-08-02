@@ -28,12 +28,15 @@
                 :copy-directory
                 :print-package-commands
                 :arglist
-                :terminate))
+                :terminate)
+  (:export :install
+           :upgrade
+           :dump-core
+           :local-dump-core
+           :rm-core
+           :install-command))
 (in-package :shelly.install)
 
-(cl-annot:enable-annot-syntax)
-
-@export
 (defun install (&key version)
   "Install Shelly into your environment under \"~/.shelly\".
 You can install a specific version by using \"--version\"."
@@ -53,7 +56,6 @@ You can install a specific version by using \"--version\"."
       (delete-directory-and-files shelly-system-path)))
   (values))
 
-@export
 (defun upgrade ()
   "Upgrade Shelly to the latest version."
   (let ((current-version (format nil "v~A"
@@ -172,7 +174,6 @@ if ( -e $SHELLY_HOME/shelly/init.csh ) source $SHELLY_HOME/shelly/init.csh"
                            (getenv "LISP_IMPL"))
                    (shelly-home)))
 
-@export
 (defun dump-core (&key (quit-lisp t) load-systems (output (dumped-core-path)))
   "Dump Lisp core image file for faster startup."
   (declare (ignorable load-systems output))
@@ -217,7 +218,6 @@ if ( -e $SHELLY_HOME/shelly/init.csh ) source $SHELLY_HOME/shelly/init.csh"
     (terminate))
   (values))
 
-@export
 (defun local-dump-core (&rest systems)
   "(Experimental)
 Dump Lisp core image file to the current directory.
@@ -228,7 +228,6 @@ This command takes system names to be included in the core."
              :output (format nil "dumped-cores/~A.core"
                              (getenv "LISP_IMPL"))))
 
-@export
 (defun rm-core ()
   "Remove saved core image file which created by `dump-core'."
   (let ((path (dumped-core-path)))
@@ -240,7 +239,6 @@ This command takes system names to be included in the core."
   (terminate))
 
 #+(or sbcl ccl clisp)
-@export
 (defmacro install-command (package-or-function-name)
   "Make an executable file under SHELLY_HOME/bin/.
 

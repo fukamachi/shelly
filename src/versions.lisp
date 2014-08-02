@@ -1,9 +1,10 @@
 (in-package :cl-user)
 (defpackage shelly.versions
-  (:use :cl))
+  (:use :cl)
+  (:export :release-versions
+           :find-version
+           :download-version))
 (in-package :shelly.versions)
-
-(cl-annot:enable-annot-syntax)
 
 (defun qlrequire (packages)
   (dolist (package packages)
@@ -32,12 +33,10 @@
       (or releases
           (setf releases (retrieve-from-api))))))
 
-@export
 (defun release-versions ()
   (let ((releases (retrieve-releases)))
     (mapcar #'(lambda (release) (gethash "name" release)) releases)))
 
-@export
 (defun find-version (version)
   (when (string= version "latest")
     (return-from find-version (find-version :latest)))
@@ -57,7 +56,6 @@
         (gethash "tarball_url" version)
         nil)))
 
-@export
 (defun download-version (version &optional (destination *default-pathname-defaults*))
   (let ((tarball-url (version-tarball-url version)))
     (unless tarball-url

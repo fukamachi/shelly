@@ -18,8 +18,7 @@
   :version "0.7.8"
   :author "Eitaro Fukamachi"
   :license "BSD 2-Clause"
-  :depends-on (:cl-annot
-               :split-sequence
+  :depends-on (:split-sequence
                :cl-fad
                :bordeaux-threads
                :local-time)

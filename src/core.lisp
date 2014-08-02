@@ -16,15 +16,14 @@
                 :shelly-command-not-found-error)
   (:import-from :shelly.util
                 :with-retrying-when-system-not-found
-                :terminate))
+                :terminate)
+  (:export :*argv*
+           :interpret
+           :run-repl))
 (in-package :shelly.core)
 
-(cl-annot:enable-annot-syntax)
-
-@export
 (defparameter *argv* '())
 
-@export
 (defun shelly.core::read (expr)
   (let ((*package* (find-package :cl-user)))
     (destructuring-bind (fn &rest args) expr
@@ -42,7 +41,6 @@
   (fresh-line)
   (prin1 result))
 
-@export
 (defun interpret (expr &key verbose)
   (pushnew :shelly *features*)
   (when verbose
@@ -100,7 +98,6 @@
   (princ "> ")
   (force-output))
 
-@export
 (defun run-repl (&key verbose)
   "Start Read-Eval-Print Loop for interactive execution."
   (prompt)

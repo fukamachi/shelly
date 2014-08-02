@@ -11,12 +11,22 @@
   (:import-from :cl-fad
                 :file-exists-p
                 :walk-directory
-                :copy-file))
+                :copy-file)
+  (:export :with-retrying-when-system-not-found
+           :shelly-home
+           :shadowing-use-package
+           :load-systems
+           :add-load-path
+           :check-version
+           :local-command-symbols
+           :load-local-shlyfile
+           :load-global-shlyfile
+           :copy-directory
+           :arglist
+           :print-package-commands
+           :terminate))
 (in-package :shelly.util)
 
-(cl-annot:enable-annot-syntax)
-
-@export
 (defmacro with-retrying-when-system-not-found (&body body)
   (let ((e (gensym "E"))
         (retried (gensym "RETRIED"))
@@ -39,7 +49,6 @@
                ,@body)
            (retry () ,@body))))))
 
-@export
 (defun shelly-home ()
   (labels ((ensure-ends-slash (str)
              (if (char= (aref str (1- (length str))) #\/)
@@ -49,7 +58,6 @@
         (pathname (ensure-ends-slash (getenv "SHELLY_HOME")))
         (merge-pathnames ".shelly/" (user-homedir-pathname)))))
 
-@export
 (defun shadowing-use-package (packages-to-use &optional (package (find-package :cl-user)))
   (let ((packages-to-use (if (consp packages-to-use)
                              packages-to-use
@@ -58,7 +66,6 @@
       (do-external-symbols (symbol package-to-use)
         (shadowing-import symbol package)))))
 
-@export
 (defun load-systems (systems &key verbose)
   (handler-case (let ((*standard-output* (if verbose
                                              *standard-output*
@@ -75,13 +82,11 @@
     (when packages
       (shadowing-use-package packages))))
 
-@export
 (defun add-load-path (directories)
   (setf asdf:*central-registry*
         (append (remove-if #'null (mapcar #'probe-file directories))
                 asdf:*central-registry*)))
 
-@export
 (defun check-version (version)
   (let ((*standard-output* (make-broadcast-stream)))
     (unless (string= version (slot-value (asdf:find-system :shelly)
@@ -91,7 +96,6 @@
       (force-output *error-output*))
     (values)))
 
-@export
 (defun local-command-symbols (&optional (package (find-package :cl-user)))
   (let (symbols)
     (do-symbols (symbol package)
@@ -112,7 +116,6 @@
         (load shlyfile))
       (import (local-command-symbols) (find-package :cl-user)))))
 
-@export
 (defun load-local-shlyfile (&optional (shlyfile nil shlyfile-specified-p))
   (when (and shlyfile-specified-p
              (not (fad:file-exists-p shlyfile)))
@@ -126,7 +129,6 @@
                                            asdf:*central-registry*)))
         (load-shlyfile shlyfile)))))
 
-@export
 (defun load-global-shlyfile ()
   (let ((shlyfile
           (car (member-if #'fad:file-exists-p
@@ -136,7 +138,6 @@
     (when shlyfile
       (load-shlyfile shlyfile))))
 
-@export
 (defun copy-directory (from to &key overwrite)
   (let ((len (length (namestring (truename from)))))
     (fad:walk-directory
@@ -150,7 +151,6 @@
           to))
         :overwrite overwrite)))))
 
-@export
 (defun arglist (fname)
   #+sbcl (require 'sb-introspect)
   #+(or sbcl ccl allegro clisp ecl abcl)
@@ -183,7 +183,6 @@
                     arglist)
                 (split-sequence #\Newline (documentation symbol 'function)))))))
 
-@export
 (defun terminate (&optional (status 0) format-string &rest format-arguments)
   (declare (ignorable status))
   (when format-string

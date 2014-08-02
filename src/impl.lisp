@@ -1,11 +1,15 @@
 (in-package :cl-user)
 (defpackage shelly.impl
-  (:use :cl))
+  (:use :cl)
+  (:export :*current-lisp-name*
+           :*current-lisp-path*
+           :command-line-args
+           :*eval-option*
+           :save-core-image
+           :save-app
+           :condition-undefined-function-name))
 (in-package :shelly.impl)
 
-(cl-annot:enable-annot-syntax)
-
-@export
 (defvar *current-lisp-name*
     (or
      #+ccl "ccl"
@@ -16,7 +20,6 @@
      #+ecl "ecl"
      #+abcl "abcl"))
 
-@export
 (defvar *current-lisp-path*
     (or
      #+ccl (car ccl:*command-line-argument-list*)
@@ -26,7 +29,6 @@
      #+cmu (car ext:*command-line-strings*)
      #+ecl (car (si:command-args))))
 
-@export
 (defun command-line-args ()
   (or
    #+ccl ccl:*command-line-argument-list*
@@ -36,7 +38,6 @@
    #+cmu ext:*command-line-strings*
    #+ecl (si:command-args)))
 
-@export
 (defvar *eval-option*
     (or
      #+ccl "--eval"
@@ -46,7 +47,6 @@
      #+cmu "-eval"
      #+ecl "-eval"))
 
-@export
 (defun save-core-image (filepath)
   (declare (ignorable filepath))
   #+allegro (progn (excl:dumplisp :name filepath) (excl:exit 1 :quiet t))
@@ -57,7 +57,6 @@
   #-(or allegro ccl sbcl clisp cmu)
   (error "Dumping core image isn't supported on this implementation."))
 
-@export
 (defun save-app (filepath toplevel)
   #+sbcl
   (sb-ext:save-lisp-and-die filepath
@@ -80,7 +79,6 @@
   #-(or sbcl ccl clisp)
   (error "Making an executable isn't supported on this implementation."))
 
-@export
 (defun condition-undefined-function-name (condition)
   (declare (ignorable condition))
   (or

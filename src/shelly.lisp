@@ -25,12 +25,12 @@
            :dump-core
            :local-dump-core
            :rm-core
-           :install-command))
+           :install-command
+
+           :help
+           :available-versions))
 (in-package :shelly)
 
-(cl-annot:enable-annot-syntax)
-
-@export
 (defun help (&optional command)
   "Show a list of Built-In Commands.
 If `command' is specified, its usage will be displayed."
@@ -60,7 +60,6 @@ If `command' is specified, its usage will be displayed."
                         (split-sequence #\Newline (documentation symbol 'function)))))))))
   (values))
 
-@export
 (defun available-versions ()
   "Show all the possible Shelly versions."
   (format t "~{~&~A~%~}" (release-versions))

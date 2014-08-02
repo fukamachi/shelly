@@ -1,18 +1,16 @@
 (in-package :cl-user)
 (defpackage shelly.error
-  (:use :cl))
+  (:use :cl)
+  (:export :shelly-error
+           :shelly-read-error
+           :shelly-command-not-found-error))
 (in-package :shelly.error)
 
-(cl-annot:enable-annot-syntax)
-
-@export
 (define-condition shelly-error (simple-error) ())
 
-@export
 (define-condition shelly-read-error (shelly-error)
   ((expression :initarg :expression)))
 
-@export
 (define-condition shelly-command-not-found-error (shelly-error)
   ((command :initarg :command))
   (:report
