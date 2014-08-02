@@ -19,7 +19,7 @@
   :author "Eitaro Fukamachi"
   :license "BSD 2-Clause"
   :depends-on (:cl-annot
-               :cl-ppcre
+               :split-sequence
                :cl-fad
                :bordeaux-threads
                :local-time)

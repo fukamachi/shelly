@@ -1,8 +1,7 @@
 (in-package :cl-user)
 (defpackage shelly
-  (:use :cl)
-  (:import-from :cl-ppcre
-                :split)
+  (:use :cl
+        :split-sequence)
   (:import-from :shelly.core
                 :run-repl
                 :*argv*)
@@ -44,7 +43,7 @@ If `command' is specified, its usage will be displayed."
                 (if (eq arglist :not-available)
                     ""
                     arglist)
-                (ppcre:split "\\n" (documentation parsed-command 'function))))
+                (split-sequence #\Newline (documentation parsed-command 'function))))
       (progn
         (format t "~&Built-In Commands:~%")
         (print-package-commands :shelly)
@@ -58,7 +57,7 @@ If `command' is specified, its usage will be displayed."
                         (if (eq arglist :not-available)
                             ""
                             arglist)
-                        (ppcre:split "\\n" (documentation symbol 'function)))))))))
+                        (split-sequence #\Newline (documentation symbol 'function)))))))))
   (values))
 
 @export

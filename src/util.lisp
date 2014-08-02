@@ -1,6 +1,7 @@
 (in-package :cl-user)
 (defpackage shelly.util
-  (:use :cl)
+  (:use :cl
+        :split-sequence)
   (:import-from :asdf
                 :getenv)
   (:import-from :shelly.error
@@ -180,7 +181,7 @@
                 (if (eq arglist :not-available)
                     ""
                     arglist)
-                (ppcre:split "\\n" (documentation symbol 'function)))))))
+                (split-sequence #\Newline (documentation symbol 'function)))))))
 
 @export
 (defun terminate (&optional (status 0) format-string &rest format-arguments)
