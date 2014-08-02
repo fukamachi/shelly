@@ -78,8 +78,7 @@
                            (if (string-equal funcname (car expr))
                                (error 'shelly-command-not-found-error
                                       :command funcname)
-                               (error c)))
-                         (values))))))
+                               (error c))))))))
               #+clisp
               (setf retval (car result))
               #-clisp
