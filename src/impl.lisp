@@ -27,6 +27,16 @@
      #+ecl (car (si:command-args))))
 
 @export
+(defun command-line-args ()
+  (or
+   #+ccl ccl:*command-line-argument-list*
+   #+sbcl sb-ext:*posix-argv*
+   #+allegro (system:command-line-arguments)
+   #+clisp (cons "clisp" ext:*args*)
+   #+cmu ext:*command-line-strings*
+   #+ecl (si:command-args)))
+
+@export
 (defvar *eval-option*
     (or
      #+ccl "--eval"
@@ -46,6 +56,23 @@
   #+cmu (ext:save-lisp filepath :load-init-file nil)
   #-(or allegro ccl sbcl clisp cmu)
   (error "Dumping core image isn't supported on this implementation."))
+
+@export
+(defun save-app (filepath toplevel)
+  #+sbcl
+  (sb-ext:save-lisp-and-die filepath
+                            :toplevel toplevel
+                            :save-runtime-options t
+                            :executable t)
+  #+ccl
+  (ccl:save-application filepath
+                        :prepend-kernel t
+                        :toplevel-function toplevel
+                        :purify t
+                        :application-class 'ccl::application
+                        :error-handler :quit)
+  #-(or sbcl ccl)
+  (error "Making an executable isn't supported on this implementation."))
 
 @export
 (defun condition-undefined-function-name (condition)

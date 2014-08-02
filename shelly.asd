@@ -21,12 +21,13 @@
   :depends-on (:cl-annot
                :cl-ppcre
                :cl-fad
-               :bordeaux-threads)
+               :bordeaux-threads
+               :local-time)
   :components ((:module "src"
                 :components
                 ((:file "shelly" :depends-on ("core" "install" "versions" "util"))
                  (:file "core" :depends-on ("impl" "error" "util"))
-                 (:file "install" :depends-on ("impl" "versions" "util"))
+                 (:file "install" :depends-on ("core" "impl" "versions" "util"))
                  (:file "versions")
                  (:file "util" :depends-on ("error" "impl"))
                  (:file "impl")

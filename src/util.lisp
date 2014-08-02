@@ -171,6 +171,17 @@
     (simple-error () :not-available))
   #-(or sbcl ccl allegro clisp ecl abcl) :not-available)
 
+(defun print-package-commands (package &optional (stream *standard-output*))
+  (do-external-symbols (symbol package)
+    (when (fboundp symbol)
+      (let ((arglist (arglist symbol)))
+        (format stream "~&    ~(~A~) ~:[()~;~:*~(~A~)~]~{~&        ~A~^~%~}~2%"
+                symbol
+                (if (eq arglist :not-available)
+                    ""
+                    arglist)
+                (ppcre:split "\\n" (documentation symbol 'function)))))))
+
 @export
 (defun terminate (&optional (status 0) format-string &rest format-arguments)
   (declare (ignorable status))
