@@ -448,48 +448,4 @@ Options:
 EOF
 fi
 
-if [ "$action" = "install" ]; then
-    "$LISP_BINARY" $cmd || exit 1
-    if [ -f "$SHELLY_HOME/shelly/init.csh" ] && expr "$SHELL" : '.*csh' >/dev/null 2>&1; then
-        rc="set SHELLY_HOME $SHELLY_HOME
-if (-r '$SHELLY_HOME/init.csh' ) then
-    source '$SHELLY_HOME/init.csh'
-fi"
-        case "$SHELL" in
-            */csh)  rcfile="$HOME/.cshrc";;
-            */tcsh) rcfile="$HOME/.tcshrc";;
-            *) ;;
-        esac
-    elif [ -f "$SHELLY_HOME/shelly/init.sh" ] && expr "$SHELL" : '.*sh' >/dev/null 2>&1; then
-        rc="SHELLY_HOME=$SHELLY_HOME; [ -s \"\$SHELLY_HOME/shelly/init.sh\" ] && . \"\$SHELLY_HOME/shelly/init.sh\""
-        case "$SHELL" in
-            */bash) rcfile="$HOME/.bashrc" ;;
-            */zsh)  rcfile="$HOME/.zshrc" ;;
-            */sh)   rcfile="$HOME/.profile" ;;
-            *) ;;
-        esac
-    fi
-
-    if [ -n "$rcfile" ] && [ -e "$rcfile" ]; then
-        if grep -F "$rc" "$rcfile" > /dev/null 2>&1; then
-            cat <<EOF
-
-Your shell has already configured in $rcfile. Enjoy!
-EOF
-        else
-            cat <<EOF
-
-Adding the following settings into your $rcfile:
-
-    $rc
-
-EOF
-            echo "$rc" >> "$rcfile"
-            cat <<EOF
-The configuration successed. Please reload your $rcfile. Enjoy!
-EOF
-        fi
-    fi
-else
-    exec "$LISP_BINARY" $cmd
-fi
+exec "$LISP_BINARY" $cmd

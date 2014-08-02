@@ -62,6 +62,52 @@ You can install a specific version by using \"--version\"."
        (format t "~&You already have the latest version.~%")))
     (values)))
 
+(defun csh-style-init ()
+  (format nil "set SHELLY_HOME = ~A
+if ( -e $SHELLY_HOME/shelly/init.csh ) source $SHELLY_HOME/shelly/init.csh"
+          (shelly-home)))
+
+(defun sh-style-init ()
+  (format nil
+          "SHELLY_HOME=~A; [ -s \"$SHELLY_HOME/shelly/init.sh\" ] && . \"$SHELLY_HOME/shelly/init.sh\""
+          (shelly-home)))
+
+(defun configure-shell ()
+  (labels ((rcfile (shell)
+             (let ((program (file-namestring shell)))
+               (cond
+                 ((string= program "csh")  (values ".cshrc"   (csh-style-init)))
+                 ((string= program "tcsh") (values ".tcshrc"  (csh-style-init)))
+                 ((string= program "bash") (values ".bashrc"  (sh-style-init)))
+                 ((string= program "zsh")  (values ".zshrc"   (sh-style-init)))
+                 ((string= program "sh")   (values ".profile" (sh-style-init))))))
+           (slurp-stream (stream)
+             (let ((seq (make-string (file-length stream))))
+               (read-sequence seq stream)
+               seq))
+           (slurp-file (file)
+             (with-open-file (input file)
+               (slurp-stream input))))
+    (multiple-value-bind (rcfile rc) (rcfile (getenv "SHELL"))
+      (when rcfile
+        (setf rcfile (merge-pathnames rcfile (user-homedir-pathname))))
+      (when (and rcfile
+                 rc
+                 (fad:file-exists-p rcfile))
+        (cond
+          ((search rc (slurp-file rcfile))
+           (format t "~2&Your shell has already configured in ~A. Enjoy!~%"
+                   rcfile))
+          (T
+           (format t "~2&Adding the following settings into your ~A:~2%    ~A~2%"
+                   rcfile rc)
+           (with-open-file (output rcfile :direction :output :if-exists :append)
+             (fresh-line output)
+             (format output rc)
+             (fresh-line output))
+           (format t "~&The configuration succeeded. Please reload your ~A. Enjoy!~%"
+                   rcfile)))))))
+
 (defun install-from-path (shelly-system-path)
   (let* ((home-config-path (shelly-home))
          (version (slot-value (asdf:find-system :shelly)
@@ -109,7 +155,9 @@ You can install a specific version by using \"--version\"."
                       shelly-dir))
     (dump-core :quit-lisp nil))
 
-  (format t "~&Successfully installed!~%"))
+  (format t "~&Successfully installed!~%")
+
+  (configure-shell))
 
 (defun dumped-core-path ()
   (merge-pathnames (format nil "dumped-cores/~A.core"
