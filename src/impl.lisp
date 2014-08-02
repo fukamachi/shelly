@@ -71,7 +71,13 @@
                         :purify t
                         :application-class 'ccl::application
                         :error-handler :quit)
-  #-(or sbcl ccl)
+  #+clisp
+  (ext:saveinitmem filepath
+                   :quiet t
+                   :init-function (lambda () (funcall toplevel) (ext:exit))
+                   :executable t
+                   :norc t)
+  #-(or sbcl ccl clisp)
   (error "Making an executable isn't supported on this implementation."))
 
 @export

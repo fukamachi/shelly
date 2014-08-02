@@ -238,7 +238,7 @@ This command takes system names to be included in the core."
 
   (terminate))
 
-#+(or sbcl ccl)
+#+(or sbcl ccl clisp)
 @export
 (defmacro install-command (package-or-function-name)
   "Make an executable file under SHELLY_HOME/bin/.
@@ -263,7 +263,7 @@ Example:
          (install-function-command package-name function-name)
          (install-package-command package-name))))
 
-#+(or sbcl ccl)
+#+(or sbcl ccl clisp)
 (defun install-function-command (package-name function-name)
   (let ((fn (intern (string-upcase function-name) (string-upcase package-name))))
     (unless (fboundp fn)
@@ -298,7 +298,7 @@ Example:
                                                 (cdr (command-line-args))))))))
         (save-app bin-path #'main)))))
 
-#+(or sbcl ccl)
+#+(or sbcl ccl clisp)
 (defun install-package-command (package-name)
   (let ((help-message
           (with-output-to-string (s)

@@ -312,7 +312,7 @@ Make an executable file under SHELLY_HOME/bin/.
 
 ### v0.8.0
 
-* Add `install-command` command (for SBCL and CCL).
+* Add `install-command` command (for SBCL, CCL and GNU CLISP).
 
 ### v0.7.0 (July 15, 2014)
 
