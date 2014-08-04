@@ -181,7 +181,8 @@
                 (if (eq arglist :not-available)
                     ""
                     arglist)
-                (split-sequence #\Newline (documentation symbol 'function)))))))
+                (and (documentation symbol 'function)
+                     (split-sequence #\Newline (documentation symbol 'function))))))))
 
 (defun terminate (&optional (status 0) format-string &rest format-arguments)
   (declare (ignorable status))

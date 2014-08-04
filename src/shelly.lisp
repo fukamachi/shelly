@@ -45,7 +45,8 @@ If `command' is specified, its usage will be displayed."
                 (if (eq arglist :not-available)
                     ""
                     arglist)
-                (split-sequence #\Newline (documentation parsed-command 'function))))
+                (and (documentation parsed-command 'function)
+                     (split-sequence #\Newline (documentation parsed-command 'function)))))
       (progn
         (format t "~&Built-In Commands:~%")
         (print-package-commands :shelly)
@@ -59,7 +60,8 @@ If `command' is specified, its usage will be displayed."
                         (if (eq arglist :not-available)
                             ""
                             arglist)
-                        (split-sequence #\Newline (documentation symbol 'function)))))))))
+                        (and (documentation symbol 'function)
+                             (split-sequence #\Newline (documentation symbol 'function))))))))))
   (values))
 
 (defun available-versions ()
