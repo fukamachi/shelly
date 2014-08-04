@@ -356,45 +356,35 @@ if [ -z "$action" ]; then
     run_shelly_command "shelly::help"
 fi
 
-case "$action" in
-    install)
-        load_shelly
-        ;;
-    dump-core)
-        load_shelly
-        ;;
-    *)
-        dumped_core_path=$(dumped_core_path)
-        if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ] && [ "$core_option" ] && [ -f "$dumped_core_path" ]; then
-            load_core "$dumped_core_path"
-        else
-            if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ]; then
-                case "$LISP_IMPL" in
-                    sbcl*|clisp*|ccl*|alisp*)
-                        echo "Warning: Core image wasn't found for $LISP_IMPL. It is probably slow, isn't it? Try \"shly dump-core\"." 1>&2
-                        ;;
-                esac
-            fi
+dumped_core_path=$(dumped_core_path)
+if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ] && [ "$core_option" ] && [ -f "$dumped_core_path" ]; then
+    load_core "$dumped_core_path"
+else
+    if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ]; then
+        case "$LISP_IMPL" in
+            sbcl*|clisp*|ccl*|alisp*)
+                echo "Warning: Core image wasn't found for $LISP_IMPL. It is probably slow, isn't it? Try \"shly dump-core\"." 1>&2
+                ;;
+        esac
+    fi
 
-            load_shelly
-        fi
+    load_shelly
+fi
 
-        list=
-        for a in "$@"; do
-            list="$list \""$(echo $a | sed -e 's/"/\\\\"/g')"\""
-        done
-        add_eval_option "(setf shelly:*argv* (list$list))"
+list=
+for a in "$@"; do
+    list="$list \""$(echo $a | sed -e 's/"/\\\\"/g')"\""
+done
+add_eval_option "(setf shelly:*argv* (list$list))"
 
-        if [ "$no_global_shlyfile" != 1 ]; then
-            add_eval_option "(shelly.util::load-global-shlyfile)"
-        fi
-        if [ "$no_local_shlyfile" != 1 ] && [ -z "$shlyfile" ]; then
-            add_eval_option "(shelly.util::load-local-shlyfile)"
-        elif [ -n "$shlyfile" ]; then
-            add_eval_option "(shelly.util::load-local-shlyfile #P\"$shlyfile\")"
-        fi
-        ;;
-esac
+if [ "$no_global_shlyfile" != 1 ]; then
+    add_eval_option "(shelly.util::load-global-shlyfile)"
+fi
+if [ "$no_local_shlyfile" != 1 ] && [ -z "$shlyfile" ]; then
+    add_eval_option "(shelly.util::load-local-shlyfile)"
+elif [ -n "$shlyfile" ]; then
+    add_eval_option "(shelly.util::load-local-shlyfile #P\"$shlyfile\")"
+fi
 
 main_cmd=$(printf -- "%s\n$eval_option\n(shelly.util::terminate)" "$main_cmd")
 
