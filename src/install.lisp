@@ -54,7 +54,7 @@ You can install a specific version by using \"--version\"."
              (download-version version (merge-pathnames #P"lib/" directory))
              (asdf:system-source-directory :shelly))))
     (when (equal shelly-system-path
-                 (merge-pathnames #P"shelly/" directory))
+                 (merge-pathnames #P"lib/shelly/" directory))
       (terminate 1 "~&You already have this version. Exit.~%"))
     (when version
       (push shelly-system-path asdf:*central-registry*)
