@@ -1,6 +1,7 @@
 (in-package :cl-user)
 (defpackage shelly.versions
-  (:use :cl)
+  (:use :cl
+        :split-sequence)
   (:export :release-versions
            :find-version
            :find-version-name
@@ -65,8 +66,8 @@
 (defun version<= (version1 version2)
   (flet ((digit-string<= (a b)
            (<= (parse-integer a) (parse-integer b))))
-    (loop for a in (split-sequence:split-sequence #\. version1 :count 3)
-          for b in (split-sequence:split-sequence #\. version2 :count 3)
+    (loop for a in (split-sequence #\. version1 :count 3)
+          for b in (split-sequence #\. version2 :count 3)
           unless (digit-string<= a b)
             do (return-from version<= nil)
           finally
