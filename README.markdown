@@ -150,13 +150,14 @@ $ shly build
 
 Shelly also loads `~/.shelly/shlyfile.lisp` every time if it exists. If you have some commands you'd like to use everywhere, put them into that file.
 
-## Installation
+## Requirements
+
+* Common Lisp implementation
+* [Quicklisp](http://www.quicklisp.org/beta/)
 
 If you've installed [CIM](https://github.com/KeenS/CIM), Shelly will use its setting.
 
-- [CIM: Common Lisp Implementation Manager](https://github.com/KeenS/CIM)
-
-If not, you need at least one Common Lisp implementation and [Quicklisp](http://www.quicklisp.org/beta/).
+## Installation
 
 ### Installing the latest version
 
@@ -182,6 +183,8 @@ If you want to install Shelly to the different location, set SHELLY_HOME to the 
 
 ### System-Wide installation
 
+If `--global t` is specified to `install` command, it would be installed under `/usr/local`.
+
     $ curl -L http://shlyfile.org/shly | /bin/sh -s install --global t
 
 ## Configuration
@@ -191,45 +194,13 @@ If you use bash, zsh, csh or tcsh, the initialization code will be appended into
 Otherwise, set SHELLY_HOME and add ~/.shelly/bin to PATH manually.
 
     SHELLY_HOME="$HOME/.shelly"
-    [ -s "$SHELLY_HOME/shelly/init.sh" ] && . "$SHELLY_HOME/shelly/init.sh"
+    [ -s "$SHELLY_HOME/lib/shelly/init.sh" ] && . "$SHELLY_HOME/lib/shelly/init.sh"
 
 ## Upgrading
 
-Shelly ver 0.5.0 or higher allows to specify `--version` to `install` command. You can choose the version from the output of `shly available-versions`
-
 ```
-$ shly available-versions
-v0.7.3
-v0.7.2
-v0.7.1
-v0.7.0
-v0.6.1
-v0.6.0
-v0.5.8
-v0.5.7
-v0.5.6
-v0.5.5
-v0.5.4
-v0.5.3
-v0.5.2
-v0.5.1
-v0.5.0
-v0.4.2
-v0.4.1
-v0.4.0
-v0.3.1
-v0.3
-v0.2
-v0.1
+shly upgrade
 ```
-
-You can install the latest version of Shelly by running the following command.
-
-```
-$ shly install --version latest
-```
-
-To use Shelly ver 0.6.1 or older versions, you need Perl5, a Common Lisp implementation and Quicklisp.
 
 ## Uninstalling
 
@@ -271,6 +242,10 @@ If `--global` is specified with non-NIL value, it would be installed to `/usr/lo
 
 ### uninstall [&key directory]
 
+Uninstall Shelly.
+
+    $ shly uninstall
+
 ### available-versions
 
 Show all the possible Shelly versions.
@@ -311,7 +286,7 @@ Make an executable file under SHELLY_HOME/bin/.
 
 ## History (roughly)
 
-### v0.8.1
+### v0.8.1 (Aug 4, 2014)
 
 * Allow to specify where to install (`--directory` option).
 * Add `--global` to `install`.
