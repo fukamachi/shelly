@@ -158,23 +158,11 @@ If you've installed [CIM](https://github.com/KeenS/CIM), Shelly will use its set
 
 If not, you need at least one Common Lisp implementation and [Quicklisp](http://www.quicklisp.org/beta/).
 
-### Installing the stable version
-
-The stable version in the current Quicklisp release requires Perl5.
-
-    (ql:quickload :shelly)
-    (shelly:install)
-
 ### Installing the latest version
 
 Currently, the install script always installs the latest version because the stable version requires Perl5 and I suppose you may not expect it.
 
     $ curl -L http://shlyfile.org/shly | /bin/sh
-
-or
-
-    (ql:quickload :shelly)
-    (shelly:install :version :latest)
 
 You can also install from the source code.
 
@@ -191,6 +179,10 @@ As "shelly" directory will be copied to ~/.shelly, you don't need the cloned rep
 If you want to install Shelly to the different location, set SHELLY_HOME to the directory path.
 
     $ curl -L http://shlyfile.org/shly | SHELLY_HOME=~/.shly /bin/sh
+
+### System-Wide installation
+
+    $ curl -L http://shlyfile.org/shly | /bin/sh -s install --global t
 
 ## Configuration
 
