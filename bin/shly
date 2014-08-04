@@ -361,7 +361,7 @@ dumped_core_path=$(dumped_core_path)
 if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ] && [ "$core_option" ] && [ -f "$dumped_core_path" ]; then
     load_core "$dumped_core_path"
 else
-    if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ]; then
+    if [ "$no_core" != 1 ] && [ -z "$SHELLY_PATH" ] && [ "$action" != "install" ] && [ "$action" != "dump-core" ]; then
         case "$LISP_IMPL" in
             sbcl*|clisp*|ccl*|alisp*)
                 echo "Warning: Core image wasn't found for $LISP_IMPL. It is probably slow, isn't it? Try \"shly dump-core\"." 1>&2
