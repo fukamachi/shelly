@@ -41,9 +41,13 @@
            :install-command))
 (in-package :shelly.install)
 
-(defun install (&key version (directory (shelly-home)))
+(defun install (&key version global (directory (shelly-home) directory-specified-p))
   "Install Shelly into your environment under \"~/.shelly\".
 You can install a specific version by using \"--version\"."
+  (when global
+    (when directory-specified-p
+      (error "Both of --global and --directory cannot be specified at the same time."))
+    (setf directory #P"/usr/local/"))
   (setf directory (fad:pathname-as-directory directory))
   (let ((shelly-system-path
          (if version
