@@ -7,8 +7,9 @@
   (:import-from :cl-fad
                 :copy-file
                 :file-exists-p
+                :directory-exists-p
                 :delete-directory-and-files
-                :walk-directory)
+                :list-directory)
   (:import-from :local-time
                 :format-timestring
                 :now)
@@ -21,7 +22,9 @@
                 :save-app)
   (:import-from :shelly.versions
                 :download-version
-                :find-version)
+                :find-version-name
+                :version<
+                :version<=)
   (:import-from :shelly.util
                 :shelly-home
                 :shadowing-use-package
@@ -31,66 +34,92 @@
                 :terminate)
   (:export :install
            :upgrade
+           :uninstall
            :dump-core
            :local-dump-core
            :rm-core
            :install-command))
 (in-package :shelly.install)
 
-(defun install (&key version)
+(defun install (&key version (directory (shelly-home)))
   "Install Shelly into your environment under \"~/.shelly\".
 You can install a specific version by using \"--version\"."
+  (setf directory (fad:pathname-as-directory directory))
   (let ((shelly-system-path
          (if version
-             (download-version version (shelly-home))
+             (download-version version (merge-pathnames #P"lib/" directory))
              (asdf:system-source-directory :shelly))))
     (when (equal shelly-system-path
-                 (merge-pathnames #P"shelly/" (shelly-home)))
+                 (merge-pathnames #P"shelly/" directory))
       (terminate 1 "~&You already have this version. Exit.~%"))
     (when version
       (push shelly-system-path asdf:*central-registry*)
       #+quicklisp (ql:quickload :shelly)
       #-quicklisp (asdf:load-system :shelly))
-    (install-from-path shelly-system-path)
+    (if (version<= "0.8.1"
+                   (if version
+                       (subseq (find-version-name version) 1)
+                       (asdf:component-version (asdf:find-system :shelly))))
+        (install-from-path shelly-system-path directory)
+        (install-from-path shelly-system-path))
     (when version
       (delete-directory-and-files shelly-system-path)))
   (values))
 
 (defun upgrade ()
   "Upgrade Shelly to the latest version."
-  (let ((current-version (format nil "v~A"
-                                 (slot-value (asdf:find-system :shelly)
-                                             'asdf:version)))
-        (latest-version (gethash "name" (find-version :latest))))
+  (let ((current-version (slot-value (asdf:find-system :shelly)
+                                     'asdf:version))
+        (latest-version (subseq (find-version-name :latest) 1)))
     (cond
-      ((string< current-version latest-version)
+      ((version< current-version latest-version)
        (format t "~&Upgrading Shelly from ~A to ~A.~%"
                current-version
                latest-version)
-       (install :version latest-version))
+       (install :version (format nil "v~A" latest-version)
+                :directory (truename (asdf:system-relative-pathname :shelly #P"../../"))))
       (T
        (format t "~&You already have the latest version.~%")))
     (values)))
 
-(defun csh-style-init ()
-  (format nil "set SHELLY_HOME = ~A
-if ( -e $SHELLY_HOME/shelly/init.csh ) source $SHELLY_HOME/shelly/init.csh"
-          (shelly-home)))
+(defun uninstall (&optional (install-dir (asdf:system-source-directory :shelly)))
+  (let ((shelly-dir (merge-pathnames #P"lib/shelly/" install-dir)))
+    (unless (fad:directory-exists-p shelly-dir)
+      (error "~S does not exist." shelly-dir))
+    (let ((shly-bin (merge-pathnames #P"bin/shly" install-dir)))
+      (when (and (probe-file shly-bin)
+                 (string= (directory-namestring (truename shly-bin))
+                          (directory-namestring (merge-pathnames #P"bin/" shelly-dir))))
+        (delete-file shly-bin)))
+    (delete-directory-and-files shelly-dir)))
 
-(defun sh-style-init ()
-  (format nil
-          "SHELLY_HOME=~A; [ -s \"$SHELLY_HOME/shelly/init.sh\" ] && . \"$SHELLY_HOME/shelly/init.sh\""
-          (shelly-home)))
+(defun csh-style-init (install-dir)
+  (let ((shelly-home (fad:pathname-as-file (shelly-home))))
+    (format nil "set SHELLY_HOME = ~A
+if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
+            shelly-home
+            (if (equal shelly-home (fad:pathname-as-file install-dir))
+                "$SHELLY_HOME/"
+                install-dir))))
 
-(defun configure-shell ()
+(defun sh-style-init (install-dir)
+  (let ((shelly-home (fad:pathname-as-file (shelly-home))))
+    (format nil
+            "SHELLY_HOME=~A; [ -s \"~Alib/shelly/init.sh\" ] && . \"~:*~Alib/shelly/init.sh\""
+            shelly-home
+            (if (equal shelly-home (fad:pathname-as-file install-dir))
+                "$SHELLY_HOME/"
+                install-dir))))
+
+(defun configure-shell (install-dir)
   (labels ((rcfile (shell)
              (let ((program (file-namestring shell)))
                (cond
-                 ((string= program "csh")  (values ".cshrc"   (csh-style-init)))
-                 ((string= program "tcsh") (values ".tcshrc"  (csh-style-init)))
-                 ((string= program "bash") (values ".bashrc"  (sh-style-init)))
-                 ((string= program "zsh")  (values ".zshrc"   (sh-style-init)))
-                 ((string= program "sh")   (values ".profile" (sh-style-init))))))
+                 ((string= program "csh")  (values ".cshrc"   (csh-style-init install-dir)))
+                 ((string= program "tcsh") (values ".tcshrc"  (csh-style-init install-dir)))
+                 ((string= program "bash") (values ".bashrc"  (sh-style-init install-dir)))
+                 ((string= program "zsh")  (values ".zshrc"   (sh-style-init install-dir)))
+                 ((string= program "sh")   (values ".profile" (sh-style-init install-dir))))))
            (slurp-stream (stream)
              (let ((seq (make-string (file-length stream))))
                (read-sequence seq stream)
@@ -118,7 +147,8 @@ if ( -e $SHELLY_HOME/shelly/init.csh ) source $SHELLY_HOME/shelly/init.csh"
            (format t "~&The configuration succeeded. Please reload your ~A. Enjoy!~%"
                    rcfile)))))))
 
-(defun install-from-path (shelly-system-path)
+(defun install-from-path (shelly-system-path &optional (install-dir (shelly-home)))
+  (ensure-directories-exist install-dir)
   (let* ((home-config-path (shelly-home))
          (version (slot-value (asdf:find-system :shelly)
                               'asdf:version)))
@@ -144,30 +174,35 @@ if ( -e $SHELLY_HOME/shelly/init.csh ) source $SHELLY_HOME/shelly/init.csh"
               #+quicklisp ql:*quicklisp-home*
               #-quicklisp nil))
 
-    (dolist (dir '("dumped-cores/" "bin/"))
+    (dolist (home-dir '("dumped-cores/" "bin/"))
       (ensure-directories-exist
-       (merge-pathnames dir home-config-path)))
+       (merge-pathnames home-dir home-config-path)))
 
-    (let ((bin-dir (merge-pathnames #P"bin/" home-config-path)))
-      (delete-directory-and-files bin-dir
-                                  :if-does-not-exist :ignore)
-      (copy-directory (merge-pathnames #P"bin/" shelly-system-path)
-                      bin-dir)
-      (fad:walk-directory bin-dir
-                          (lambda (file)
-                            ;; XXX: must be more portable.
-                            (asdf:run-shell-command "chmod u+x ~A" file))))
+    (let ((home-bin-dir (merge-pathnames #P"bin/" home-config-path)))
+      (ensure-directories-exist home-bin-dir)
+      (when (probe-file (merge-pathnames #P"shly" home-bin-dir))
+        (delete-file (merge-pathnames #P"shly" home-bin-dir))))
 
-    (let ((shelly-dir (merge-pathnames #P"shelly/" home-config-path)))
-      (delete-directory-and-files shelly-dir
-                                  :if-does-not-exist :ignore)
+    (delete-directory-and-files (merge-pathnames #P"shelly/" install-dir)
+                                :if-does-not-exist :ignore)
+    (let ((shelly-dir (merge-pathnames #P"lib/shelly/" install-dir)))
+      (when (fad:directory-exists-p shelly-dir)
+        (uninstall install-dir))
       (copy-directory shelly-system-path
                       shelly-dir))
+
+    (let ((install-bin-dir (merge-pathnames #P"bin/" install-dir))
+          (shly-bin (merge-pathnames #P"lib/shelly/bin/shly" install-dir)))
+      (ensure-directories-exist install-bin-dir)
+      ;; XXX: must be more portable.
+      (asdf:run-shell-command "chmod u+x ~A" shly-bin)
+      (asdf:run-shell-command "ln -s ~A ~A" shly-bin install-bin-dir))
+
     (dump-core :quit-lisp nil))
 
   (format t "~&Successfully installed!~%")
 
-  (configure-shell))
+  (configure-shell install-dir))
 
 (defun dumped-core-path ()
   (merge-pathnames (format nil "dumped-cores/~A.core"
@@ -201,7 +236,7 @@ if ( -e $SHELLY_HOME/shelly/init.csh ) source $SHELLY_HOME/shelly/init.csh"
                           '(require (quote asdf))
 
                           *eval-option*
-                          `(push ,(merge-pathnames "shelly/" (shelly-home)) asdf:*central-registry*)
+                          `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
 
                           *eval-option*
                           (format nil

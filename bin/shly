@@ -1,6 +1,7 @@
 #!/bin/sh -
 
 BASENAME=$(basename $0)
+BIN_DIR=$(dirname $0)
 [ "$BASENAME" = "sh" ] && DOWNLOADED=1;
 if [ -z "$SHELLY_HOME" ] || [ ! -f "$SHELLY_HOME/config" ]; then
     NOT_INSTALLED=1
@@ -231,10 +232,12 @@ load_quicklisp() {
 }
 
 load_shelly() {
-    if [ -z "$SHELLY_PATH" ]; then
-        shelly_path="$SHELLY_HOME/shelly/"
-    else
+    if [ -n "$SHELLY_PATH" ]; then
         shelly_path="$SHELLY_PATH"
+    elif [ -d "$BIN_DIR/../lib/shelly/" ]; then
+        shelly_path="$BIN_DIR/../lib/shelly/"
+    else
+        shelly_path="$SHELLY_HOME/shelly/"
     fi
 
     load_quicklisp

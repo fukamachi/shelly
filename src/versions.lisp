@@ -3,6 +3,9 @@
   (:use :cl)
   (:export :release-versions
            :find-version
+           :find-version-name
+           :version<
+           :version<=
            :download-version))
 (in-package :shelly.versions)
 
@@ -49,6 +52,25 @@
                        (string= (gethash "name" release)
                                 version))
                    (retrieve-releases))))))
+
+(defun find-version-name (version)
+  (let ((version (find-version version)))
+    (when version
+      (gethash "name" version))))
+
+(defun version< (version1 version2)
+  (and (not (string= version1 version2))
+       (version<= version1 version2)))
+
+(defun version<= (version1 version2)
+  (flet ((digit-string<= (a b)
+           (<= (parse-integer a) (parse-integer b))))
+    (loop for a in (split-sequence:split-sequence #\. version1 :count 3)
+          for b in (split-sequence:split-sequence #\. version2 :count 3)
+          unless (digit-string<= a b)
+            do (return-from version<= nil)
+          finally
+             (return t))))
 
 (defun version-tarball-url (version)
   (let ((version (find-version version)))
