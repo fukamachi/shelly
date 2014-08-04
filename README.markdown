@@ -241,9 +241,8 @@ To use Shelly ver 0.6.1 or older versions, you need Perl5, a Common Lisp impleme
 
 ## Uninstalling
 
-Just delete the ~/.shelly directory.
-
 ```
+$ shly uninstall
 $ rm -rf ~/.shelly
 ```
 
@@ -264,11 +263,21 @@ If `command` is not specified, it shows all available commands. This is the same
 
     $ shly help
 
-### install [&key version]
+### install [&key version global directory]
 
 Install Shelly into your environment under "~/.shelly". You can install a specific version by using "--version".
 
     $ shly install --version v0.6.1
+
+If `--directory` is specified, it would be installed to the directory.
+
+    $ shly install --directory ~/.local
+
+If `--global` is specified with non-NIL value, it would be installed to `/usr/local/` (Same as `--directory /usr/local`).
+
+    $ shly install --global t
+
+### uninstall [&key directory]
 
 ### available-versions
 
@@ -310,7 +319,13 @@ Make an executable file under SHELLY_HOME/bin/.
 
 ## History (roughly)
 
-### v0.8.0
+### v0.8.1
+
+* Allow to specify where to install (`--directory` option).
+* Add `--global` to `install`.
+* Add `uninstall` command.
+
+### v0.8.0 (Aug 2, 2014)
 
 * Add `install-command` command (for SBCL, CCL and GNU CLISP).
 
