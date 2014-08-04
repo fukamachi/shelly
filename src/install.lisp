@@ -86,7 +86,13 @@ You can install a specific version by using \"--version\"."
        (format t "~&You already have the latest version.~%")))
     (values)))
 
-(defun uninstall (&optional (install-dir (asdf:system-source-directory :shelly)))
+(defun uninstall (&key (directory (truename (asdf:system-relative-pathname :shelly #P"../../"))))
+  "Uninstall Shelly."
+  (when (getenv "SHELLY_PATH")
+    (error "Cannot uninstall when SHELLY_PATH is specified."))
+  (uninstall-with-path directory))
+
+(defun uninstall-with-path (install-dir)
   (let ((shelly-dir (merge-pathnames #P"lib/shelly/" install-dir)))
     (unless (fad:directory-exists-p shelly-dir)
       (error "~S does not exist." shelly-dir))
@@ -191,7 +197,7 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
                                 :if-does-not-exist :ignore)
     (let ((shelly-dir (merge-pathnames #P"lib/shelly/" install-dir)))
       (when (fad:directory-exists-p shelly-dir)
-        (uninstall install-dir))
+        (uninstall-with-path install-dir))
       (copy-directory shelly-system-path
                       shelly-dir))
 

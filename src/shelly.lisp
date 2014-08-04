@@ -8,6 +8,7 @@
   (:import-from :shelly.install
                 :install
                 :upgrade
+                :uninstall
                 :dump-core
                 :local-dump-core
                 :rm-core
@@ -22,6 +23,7 @@
            :run-repl
            :install
            :upgrade
+           :uninstall
            :dump-core
            :local-dump-core
            :rm-core
