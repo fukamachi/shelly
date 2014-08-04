@@ -1,4 +1,4 @@
-# Shelly - Make Common Lisp shelly-friendly.
+# Shelly - Make Common Lisp shell-friendly.
 
 ## Announcement: Release of v0.7.5
 
