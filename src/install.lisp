@@ -199,7 +199,11 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
       (when (fad:directory-exists-p shelly-dir)
         (uninstall-with-path install-dir))
       (copy-directory shelly-system-path
-                      shelly-dir))
+                      shelly-dir)
+
+      (push shelly-dir asdf:*central-registry*)
+      #+quicklisp (ql:quickload :shelly)
+      #-quicklisp (asdf:load-system :shelly))
 
     (let ((install-bin-dir (merge-pathnames #P"bin/" install-dir))
           (shly-bin (merge-pathnames #P"lib/shelly/bin/shly" install-dir)))
