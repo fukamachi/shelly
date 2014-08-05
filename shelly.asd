@@ -21,7 +21,8 @@
   :depends-on (:split-sequence
                :cl-fad
                :bordeaux-threads
-               :local-time)
+               :local-time
+               :trivial-signal)
   :components ((:module "src"
                 :components
                 ((:file "shelly" :depends-on ("core" "install" "versions" "util"))

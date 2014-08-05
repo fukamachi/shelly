@@ -4,6 +4,9 @@
   (:shadow :read :print)
   (:import-from :cl-fad
                 :file-exists-p)
+  (:import-from :trivial-signal
+                :signal-handler
+                :signal-name)
   (:import-from :bordeaux-threads
                 :all-threads
                 :thread-alive-p
@@ -63,6 +66,11 @@
                                 (*debugger-hook* (lambda () (ccl:quit))))
                        #-ccl ()
                        (map nil #'bt:join-thread (alive-user-threads)))))
+
+            (setf (signal-handler :int)
+                  #'(lambda (signo)
+                      (terminate 1 "~&SIG~A~%" (signal-name signo))))
+
             (when verbose
               (format *debug-io* "~&;-> ~S~%" expr))
 

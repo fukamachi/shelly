@@ -191,7 +191,7 @@
     (apply #'format *error-output* format-string format-arguments)
     (fresh-line *error-output*))
   #+ccl (ccl:quit status)
-  #+sbcl (sb-ext:exit :code status)
+  #+sbcl (sb-ext:exit :code status :abort t)
   #+allegro (excl:exit status :quiet t)
   #+clisp (ext:quit status)
   #+cmucl (unix:unix-exit status)
