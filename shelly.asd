@@ -15,14 +15,15 @@
 (in-package :shelly-asd)
 
 (defsystem shelly
-  :version "0.8.3"
+  :version "0.8.4"
   :author "Eitaro Fukamachi"
   :license "BSD 2-Clause"
   :depends-on (:split-sequence
                :cl-fad
                :bordeaux-threads
                :local-time
-               :trivial-signal)
+               :trivial-signal
+               :babel)
   :components ((:module "src"
                 :components
                 ((:file "shelly" :depends-on ("core" "install" "versions" "util"))

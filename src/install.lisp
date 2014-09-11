@@ -131,11 +131,11 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
                  ((string= program "zsh")  (values ".zshrc"   (sh-style-init install-dir)))
                  ((string= program "sh")   (values ".profile" (sh-style-init install-dir))))))
            (slurp-stream (stream)
-             (let ((seq (make-string (file-length stream))))
+             (let ((seq (make-array (file-length stream) :element-type '(unsigned-byte 8))))
                (read-sequence seq stream)
                seq))
            (slurp-file (file)
-             (with-open-file (input file)
+             (with-open-file (input file :element-type '(unsigned-byte 8))
                (slurp-stream input))))
     (multiple-value-bind (rcfile rc) (rcfile (getenv "SHELL"))
       (when rcfile
@@ -144,7 +144,7 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
                  rc
                  (fad:file-exists-p rcfile))
         (cond
-          ((search rc (slurp-file rcfile))
+          ((search (babel:string-to-octets rc) (slurp-file rcfile))
            (format t "~2&Your shell has already configured in ~A. Enjoy!~%"
                    rcfile))
           (T
