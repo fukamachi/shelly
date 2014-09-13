@@ -139,7 +139,7 @@
       (load-shlyfile shlyfile))))
 
 (defun copy-directory (from to &key overwrite)
-  (let ((len (length (namestring (truename from)))))
+  (let ((len (length (namestring (truename (first (directory from)))))))
     (fad:walk-directory
      from
      (lambda (x)
