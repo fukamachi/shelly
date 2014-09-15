@@ -23,7 +23,8 @@
                :bordeaux-threads
                :local-time
                :trivial-signal
-               :babel)
+               :babel
+               :uiop)
   :components ((:module "src"
                 :components
                 ((:file "shelly" :depends-on ("core" "install" "versions" "util"))
