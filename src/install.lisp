@@ -162,6 +162,7 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
   (let* ((home-config-path (shelly-home))
          (version (slot-value (asdf:find-system :shelly)
                               'asdf:version)))
+
     ;; Delete dumped cores of all Lisp implementations
     ;; if the installing version is different from the current version.
     (let ((current-installed-version (getenv "SHELLY_VERSION")))
@@ -171,17 +172,18 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
              (fad:list-directory (merge-pathnames "dumped-cores/" home-config-path)))))
 
     (ensure-directories-exist home-config-path)
+
     (with-open-file (out (merge-pathnames "config" home-config-path)
                          :direction :output
                          :if-does-not-exist :create
                          :if-exists :supersede)
       (format out "SHELLY_LISP_IMPL=\"~A\"~%SHELLY_LISP_BINARY=\"~A\"~%SHELLY_VERSION=\"~A\"~%QUICKLISP_HOME=~:[~;~:*\"~A\"~]~%"
               *current-lisp-name*
-	      #-win32
-              *current-lisp-path* 
-	      #+win32
-              (coerce (mapcar #'(lambda (x) (if (char= #\\ x) #\/ x)) 
-			      (coerce *current-lisp-path* 'list)) 'string)
+              #-win32
+              *current-lisp-path*
+              #+win32
+              (substitute #\/ #\\ *current-lisp-path*)
+
               version
               #+quicklisp ql:*quicklisp-home*
               #-quicklisp nil))
