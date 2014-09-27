@@ -177,11 +177,11 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
                          :if-exists :supersede)
       (format out "SHELLY_LISP_IMPL=\"~A\"~%SHELLY_LISP_BINARY=\"~A\"~%SHELLY_VERSION=\"~A\"~%QUICKLISP_HOME=~:[~;~:*\"~A\"~]~%"
               *current-lisp-name*
-	      #-win32
-              *current-lisp-path* 
-	      #+win32
-              (coerce (mapcar #'(lambda (x) (if (char= #\\ x) #\/ x)) 
-			      (coerce *current-lisp-path* 'list)) 'string)
+              #-win32
+              *current-lisp-path*
+              #+win32
+              (coerce (mapcar #'(lambda (x) (if (char= #\\ x) #\/ x))
+                              (coerce *current-lisp-path* 'list)) 'string)
               version
               #+quicklisp ql:*quicklisp-home*
               #-quicklisp nil))
@@ -235,19 +235,19 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
   #+(and sbcl win32)
   (uiop:run-program (list *current-lisp-path*
                           "--noinform"
-			  "--no-sysinit"
-			  "--no-userinit"
-			  "--non-interactive"
+                          "--no-sysinit"
+                          "--no-userinit"
+                          "--non-interactive"
 
                           *eval-option*
-			  (format nil "~S"
-				  #+quicklisp
-				  (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
-				    (if (probe-file quicklisp-init)
-					`(load ,quicklisp-init)
-					""))
-				  #-quicklisp
-				  '(require (quote asdf)))
+                          (format nil "~S"
+                                  #+quicklisp
+                                  (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
+                                    (if (probe-file quicklisp-init)
+                                        `(load ,quicklisp-init)
+                                        ""))
+                                  #-quicklisp
+                                  '(require (quote asdf)))
 
                           *eval-option*
                           (format nil "~S" `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*))
@@ -259,10 +259,10 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
                                         load-systems))
 
                           *eval-option*
-			  (format nil "~S" `(shelly.util:shadowing-use-package :shelly))
+                          (format nil "~S" `(shelly.util:shadowing-use-package :shelly))
 
                           *eval-option*
-			  (format nil "~S" `(shelly.impl:save-core-image ,(princ-to-string output)))))
+                          (format nil "~S" `(shelly.impl:save-core-image ,(princ-to-string output)))))
   #+(and sbcl win32)
   (when quit-lisp
     (terminate))
