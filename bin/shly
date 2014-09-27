@@ -135,16 +135,16 @@ case "$LISP_IMPL" in
         impl_cmd=$(printf -- "--noinform\n--non-interactive")
         noinit_cmd=$(printf -- "--no-sysinit\n--no-userinit")
         if [ -z "$CIM_HOME" ] || [ "$LISP_IMPL" = "sbcl-system" ]; then
-            if [[ "$OSTYPE" == "linux-gnu" ]]; then
+            if [ "$OSTYPE" = "linux-gnu" ]; then
                     sbcl_base=$(expr "$LISP_BINARY" : '\(.*\)/bin/sbcl')
                     SBCL_HOME="${sbcl_base}/lib/sbcl"
-            elif [[ "$OSTYPE" == "darwin"* ]]; then
+            elif [ "$OSTYPE" = "darwin"* ]; then
                     sbcl_base=$(expr "$LISP_BINARY" : '\(.*\)/bin/sbcl')
                     SBCL_HOME="${sbcl_base}/lib/sbcl"
-            elif [[ "$OSTYPE" == "cygwin" ]]; then
+            elif [ "$OSTYPE" = "cygwin" ]; then
                     sbcl_base=$(expr "$LISP_BINARY" : '\(.*\)/sbcl')
                     SBCL_HOME=$(echo `cygpath -m ${sbcl_base}`|sed -e "s/\n//g")
-            elif [[ "$OSTYPE" == "msys" ]]; then
+            elif [ "$OSTYPE" = "msys" ]; then
                     sbcl_base=$(expr "$LISP_BINARY" : '\(.*\)/sbcl')
                     SBCL_HOME="${sbcl_base}"
             fi
