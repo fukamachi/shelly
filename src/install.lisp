@@ -231,7 +231,8 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
   (when quit-lisp
     (format *error-output* "~&~A does not support 'dump-core'.~%"
             *current-lisp-name*))
-  #+(and sbcl win32)
+
+  #+(or sbcl allegro ccl clisp cmu)
   (uiop:run-program (list *current-lisp-path*
                           "--noinform"
                           "--no-sysinit"
@@ -262,45 +263,9 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
 
                           *eval-option*
                           (format nil "~S" `(shelly.impl:save-core-image ,(princ-to-string output)))))
-  #+(and sbcl win32)
   (when quit-lisp
     (terminate))
 
-  #+(or (and sbcl (not win32)) allegro ccl clisp cmu)
-  (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~S' ~A '~S'"
-                          *current-lisp-path*
-
-                          #+ccl "--no-init --quiet --batch"
-                          #+sbcl "--noinform --no-sysinit --no-userinit --non-interactive"
-                          #+allegro "--qq"
-                          #+clisp "-norc --quiet --silent -on-error exit"
-                          #+cmu "-noinit"
-
-                          *eval-option*
-                          #+quicklisp
-                          (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
-                            (if (probe-file quicklisp-init)
-                                `(load ,quicklisp-init)
-                                ""))
-                          #-quicklisp
-                          '(require (quote asdf))
-
-                          *eval-option*
-                          `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
-
-                          *eval-option*
-                          (format nil
-                                  "(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
-                                  (cons :shelly
-                                        load-systems))
-
-                          *eval-option*
-                          `(shelly.util:shadowing-use-package :shelly)
-
-                          *eval-option*
-                          `(shelly.impl:save-core-image ,(princ-to-string output)))
-  (when quit-lisp
-    (terminate))
   (values))
 
 (defun local-dump-core (&rest systems)
