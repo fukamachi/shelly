@@ -180,8 +180,7 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
               #-win32
               *current-lisp-path*
               #+win32
-              (coerce (mapcar #'(lambda (x) (if (char= #\\ x) #\/ x))
-                              (coerce *current-lisp-path* 'list)) 'string)
+              (substitute #\/ #\\ *current-lisp-path*)
               version
               #+quicklisp ql:*quicklisp-home*
               #-quicklisp nil))
