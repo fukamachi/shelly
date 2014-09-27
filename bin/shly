@@ -188,7 +188,7 @@ case "$LISP_IMPL" in
 esac
 
 : ${SHELLY_HOME:="$HOME/.shelly"}
-if [ $OSTYPE="cygwin" ]; then
+if [ "$OSTYPE" = "cygwin" ]; then
     SHELLY_HOME=`cygpath -m $SHELLY_HOME`
 fi
 
