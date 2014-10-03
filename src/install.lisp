@@ -210,8 +210,10 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
           (shly-bin (merge-pathnames #P"lib/shelly/bin/shly" install-dir)))
       (ensure-directories-exist install-bin-dir)
       ;; XXX: must be more portable.
-      (asdf:run-shell-command "chmod u+x ~A" shly-bin)
-      (asdf:run-shell-command "ln -s ~A ~A" shly-bin install-bin-dir))
+      (uiop:run-program (list "chmod" "u+x" (princ-to-string shly-bin)))
+      (uiop:run-program (list "ln" "-s"
+                              (princ-to-string shly-bin)
+                              (princ-to-string install-bin-dir))))
 
     (dump-core :quit-lisp nil))
 
@@ -232,76 +234,44 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
     (format *error-output* "~&~A does not support 'dump-core'.~%"
             *current-lisp-name*))
 
-  #+asdf3
   #+(or sbcl allegro ccl clisp cmu)
-  (uiop:run-program
-   (append (list *current-lisp-path*)
-           #+ccl '("--no-init" "--quiet" "--batch")
-           #+sbcl '("--noinform" "--no-sysinit" "--no-userinit" "--non-interactive")
-           #+allegro '("--qq")
-           #+clisp '("-norc" "--quiet" "--silent" "-on-error" "exit")
-           #+cmu '("-noinit")
-           (list
-            *eval-option*
-            (format nil "~S"
-                    #+quicklisp
-                    (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
-                      (if (probe-file quicklisp-init)
-                          `(load ,quicklisp-init)
-                          ""))
-                    #-quicklisp
-                    '(require (quote asdf)))
+  (uiop:run-program `(,*current-lisp-path*
+                      #+ccl
+                      ,@(list "--no-init" "--quiet" "--batch")
+                      #+sbcl
+                      ,@(list "--noinform" "--no-sysinit" "--no-userinit" "--non-interactive")
+                      #+allegro
+                      ,@(list "--qq")
+                      #+clisp
+                      ,@(list "-norc" "--quiet" "--silent" "-on-error" "exit")
+                      #+cmu
+                      ,@(list "-noinit")
 
-            *eval-option*
-            (format nil "~S" `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*))
+                      ,*eval-option*
+                      ,(prin1-to-string
+                        #+quicklisp
+                        (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
+                          (if (probe-file quicklisp-init)
+                              `(load ,quicklisp-init)
+                              "")))
+                      #-quicklisp
+                      '(require (quote asdf))
 
-            *eval-option*
-            (format nil
-                    "(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
-                    (cons :shelly
-                          load-systems))
+                      ,*eval-option*
+                      ,(prin1-to-string `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*))
 
-            *eval-option*
-            (format nil "~S" `(shelly.util:shadowing-use-package :shelly))
+                      ,*eval-option*
+                      ,(format nil
+                               "(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
+                               (cons :shelly
+                                     load-systems))
 
-            *eval-option*
-            (format nil "~S" `(shelly.impl:save-core-image ,(princ-to-string output))))))
+                      ,*eval-option*
+                      ,(prin1-to-string `(shelly.util:shadowing-use-package :shelly))
 
-  #-asdf3
-  #+asdf2
-  #+(or sbcl allegro ccl clisp cmu)
-  (asdf:run-shell-command "~A ~A ~A '~S' ~A '~S' ~A '~A' ~A '~S' ~A '~S'"
-                         *current-lisp-path*
+                      ,*eval-option*
+                      ,(prin1-to-string `(shelly.impl:save-core-image ,(princ-to-string output)))))
 
-                         #+ccl "--no-init --quiet --batch"
-                         #+sbcl "--noinform --no-sysinit --no-userinit --non-interactive"
-                         #+allegro "--qq"
-                         #+clisp "-norc --quiet --silent -on-error exit"
-                         #+cmu "-noinit"
-
-                         *eval-option*
-                         #+quicklisp
-                         (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
-                           (if (probe-file quicklisp-init)
-                               `(load ,quicklisp-init)
-                               ""))
-                         #-quicklisp
-                         '(require (quote asdf))
-
-                         *eval-option*
-                         `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*)
-
-                         *eval-option*
-                         (format nil
-                                 "(let ((*standard-output* (make-broadcast-stream)) #+allegro(*readtable* (copy-readtable))) (mapc #+quicklisp (function ql:quickload) #-quicklisp (function asdf:load-system) (list ~{:~A~^ ~})))"
-                                 (cons :shelly
-                                       load-systems))
-
-                         *eval-option*
-                         `(shelly.util:shadowing-use-package :shelly)
-
-                         *eval-option*
-                         `(shelly.impl:save-core-image ,(princ-to-string output)))
   (when quit-lisp
     (terminate))
 
