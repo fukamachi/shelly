@@ -136,7 +136,7 @@ case "$LISP_IMPL" in
         noinit_cmd=$(printf -- "--no-sysinit\n--no-userinit")
         if [ -z "$CIM_HOME" ] || [ "$LISP_IMPL" = "sbcl-system" ]; then
             case "$OSTYPE" in
-                lnux-gnu)
+                linux-gnu)
                     sbcl_base=$(expr "$LISP_BINARY" : '\(.*\)/bin/sbcl')
                     SBCL_HOME="${sbcl_base}/lib/sbcl"
                     ;;
