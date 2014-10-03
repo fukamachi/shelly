@@ -253,9 +253,9 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
                         (let ((quicklisp-init (merge-pathnames #P"setup.lisp" ql:*quicklisp-home*)))
                           (if (probe-file quicklisp-init)
                               `(load ,quicklisp-init)
-                              "")))
-                      #-quicklisp
-                      '(require (quote asdf))
+                              ""))
+                        #-quicklisp
+                        '(require (quote asdf)))
 
                       ,*eval-option*
                       ,(prin1-to-string `(push ,(asdf:system-source-directory :shelly) asdf:*central-registry*))
