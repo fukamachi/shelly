@@ -286,6 +286,10 @@ Make an executable file under SHELLY_HOME/bin/.
 
 ## History (roughly)
 
+### v0.8.6 (Oct 27, 2014)
+
+* Support Cygwin even for CCL. Thanks to [@lambdasakura](https://github.com/lambdasakura).
+
 ### v0.8.5 (Oct 3, 2014)
 
 * Support Cygwin (only with SBCL). Thanks to [@lambdasakura](https://github.com/lambdasakura).
