@@ -177,9 +177,9 @@ if ( -e ~Ashelly/init.csh ) source ~:*~Alib/shelly/init.csh"
                          :if-exists :supersede)
       (format out "SHELLY_LISP_IMPL=\"~A\"~%SHELLY_LISP_BINARY=\"~A\"~%SHELLY_VERSION=\"~A\"~%QUICKLISP_HOME=~:[~;~:*\"~A\"~]~%"
               *current-lisp-name*
-              #-win32
+              #-(or win32 windows)
               *current-lisp-path*
-              #+win32
+              #+(or win32 windows)
               (substitute #\/ #\\ *current-lisp-path*)
               version
               #+quicklisp ql:*quicklisp-home*
